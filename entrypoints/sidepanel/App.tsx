@@ -133,6 +133,7 @@ export function App() {
       const response = await sendToActiveTab({
         type: MESSAGE_TYPES.capturePost,
         postUrl: activeUrl,
+        maxComments: 150,
       });
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "post") throw new Error("Expected post data.");
@@ -225,11 +226,11 @@ export function App() {
             <div className="instruction">
               <strong>Post ready to capture</strong>
               <p>
-                Load any additional comments you want included, then capture the
-                currently visible sample.
+                Creator Trust Lens will load comment batches up to a safe sample
+                limit, then capture the visible results. This can take a few seconds.
               </p>
               <button onClick={captureCurrentPost} disabled={working}>
-                {working ? "CAPTURING…" : "CAPTURE VISIBLE COMMENTS"}
+                {working ? "LOADING COMMENTS…" : "LOAD AND CAPTURE SAMPLE"}
               </button>
             </div>
           ) : nextPostUrl ? (

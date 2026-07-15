@@ -16,8 +16,8 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 
 1. Open a public Instagram profile and start a guided scan.
 2. Creator Trust Lens discovers up to 12 currently visible post links.
-3. Open each post from the side panel and manually load any comments you want included.
-4. Capture the visible sample; nothing is collected until you click.
+3. Open each post from the side panel and choose **Load and capture sample**.
+4. The extension loads comment batches with a fixed attempt limit and captures up to 150 visible comments. Nothing is collected until you click.
 5. Finish at any point to calculate a trust score, confidence level, and evidence cards from the combined sample.
 
 The score is withheld when the sample is too small. Instagram markup changes frequently, so the platform adapter is intentionally isolated from the analysis engine.

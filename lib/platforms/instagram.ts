@@ -15,6 +15,10 @@ const RESERVED_PATHS = new Set([
   "stories",
 ]);
 
+const DEFAULT_COMMENT_LIMIT = 150;
+const MAX_LOAD_ATTEMPTS = 12;
+const LOAD_DELAY_MS = 800;
+
 export function parseCompactNumber(value: string): number | undefined {
   const cleaned = value.replace(/,/g, "").trim().toLocaleLowerCase();
   const match = cleaned.match(/([\d.]+)\s*([kmb])?/);
@@ -228,6 +232,88 @@ function readPostCounts(document: Document): {
     likes: match[1] ? parseCompactNumber(match[1]) : undefined,
     commentCount: match[2] ? parseCompactNumber(match[2]) : undefined,
   };
+}
+
+export function isLoadMoreCommentsLabel(value: string): boolean {
+  return /(?:load|view)\s+(?:all\s+)?(?:more\s+|previous\s+)?(?:\d[\d,.]*\s+)?comments?/i.test(
+    value,
+  );
+}
+
+function findLoadMoreCommentsControl(
+  document: Document,
+): HTMLElement | undefined {
+  const controls = document.querySelectorAll<HTMLElement>(
+    'main button, main [role="button"], div[role="dialog"] button, div[role="dialog"] [role="button"]',
+  );
+
+  return [...controls].find((control) => {
+    const label = [
+      control.getAttribute("aria-label"),
+      control.getAttribute("title"),
+      control.textContent,
+      control.querySelector("svg")?.getAttribute("aria-label"),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return control.getClientRects().length > 0 && isLoadMoreCommentsLabel(label);
+  });
+}
+
+const wait = (milliseconds: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+
+export async function loadAndCaptureInstagramPost(
+  document: Document,
+  pageLocation: Pick<Location, "href" | "pathname">,
+  expectedPostUrl?: string,
+  options: { maxComments?: number } = {},
+): Promise<CapturedPost> {
+  const maxComments = Math.min(
+    300,
+    Math.max(20, options.maxComments ?? DEFAULT_COMMENT_LIMIT),
+  );
+  const documentPostUrl = readDocumentPostUrl(document);
+  const id = [
+    expectedPostUrl,
+    pageLocation.href,
+    pageLocation.pathname,
+    documentPostUrl,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(parseInstagramPostId)
+    .find(Boolean);
+
+  if (!id) {
+    throw new Error("Open an Instagram post or reel before capturing comments.");
+  }
+
+  let previousCount = readVisibleComments(document, id, readPostOwner(document)).length;
+  let unchangedAttempts = 0;
+
+  for (let attempt = 0; attempt < MAX_LOAD_ATTEMPTS; attempt += 1) {
+    if (previousCount >= maxComments) break;
+
+    const control = findLoadMoreCommentsControl(document);
+    if (!control) break;
+
+    control.scrollIntoView({ block: "center", behavior: "auto" });
+    control.click();
+    await wait(LOAD_DELAY_MS);
+
+    const nextCount = readVisibleComments(
+      document,
+      id,
+      readPostOwner(document),
+    ).length;
+    unchangedAttempts = nextCount <= previousCount ? unchangedAttempts + 1 : 0;
+    previousCount = Math.max(previousCount, nextCount);
+
+    if (unchangedAttempts >= 2) break;
+  }
+
+  return captureInstagramPost(document, pageLocation, expectedPostUrl);
 }
 
 export function discoverInstagramProfile(

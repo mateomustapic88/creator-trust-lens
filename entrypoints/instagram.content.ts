@@ -1,8 +1,8 @@
 import type { ExtensionRequest, ExtensionResponse } from "../lib/messages";
 import { MESSAGE_TYPES } from "../lib/messages";
 import {
-  captureInstagramPost,
   discoverInstagramProfile,
+  loadAndCaptureInstagramPost,
 } from "../lib/platforms/instagram";
 
 export default defineContentScript({
@@ -10,8 +10,8 @@ export default defineContentScript({
   main() {
     chrome.runtime.onMessage.addListener(
       (message: ExtensionRequest, _sender, sendResponse) => {
-        try {
-          if (message?.type === MESSAGE_TYPES.discoverProfile) {
+        if (message?.type === MESSAGE_TYPES.discoverProfile) {
+          try {
             const profile = discoverInstagramProfile(document, location);
             const response: ExtensionResponse = {
               ok: true,
@@ -19,29 +19,45 @@ export default defineContentScript({
               profile,
             };
             sendResponse(response);
-            return;
-          }
-
-          if (message?.type === MESSAGE_TYPES.capturePost) {
-            const post = captureInstagramPost(
-              document,
-              location,
-              message.postUrl,
-            );
+          } catch (error) {
             const response: ExtensionResponse = {
-              ok: true,
-              kind: "post",
-              post,
+              ok: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unable to scan this page.",
             };
             sendResponse(response);
           }
-        } catch (error) {
-          const response: ExtensionResponse = {
-            ok: false,
-            error: error instanceof Error ? error.message : "Unable to scan this page.",
-          };
-          sendResponse(response);
+          return false;
         }
+
+        if (message?.type === MESSAGE_TYPES.capturePost) {
+          void loadAndCaptureInstagramPost(document, location, message.postUrl, {
+            maxComments: message.maxComments,
+          })
+            .then((post) => {
+              const response: ExtensionResponse = {
+                ok: true,
+                kind: "post",
+                post,
+              };
+              sendResponse(response);
+            })
+            .catch((error: unknown) => {
+              const response: ExtensionResponse = {
+                ok: false,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to scan this post.",
+              };
+              sendResponse(response);
+            });
+          return true;
+        }
+
+        return false;
       },
     );
   },

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseInstagramPostId } from "../lib/platforms/instagram";
+import {
+  isLoadMoreCommentsLabel,
+  parseInstagramPostId,
+} from "../lib/platforms/instagram";
 
 describe("Instagram post URL parsing", () => {
   it.each([
@@ -15,4 +18,21 @@ describe("Instagram post URL parsing", () => {
     expect(parseInstagramPostId("https://www.instagram.com/example_creator/"))
       .toBeUndefined();
   });
+});
+
+describe("Instagram comment loading controls", () => {
+  it.each([
+    "Load more comments",
+    "View all 1,234 comments",
+    "View previous comments",
+  ])("recognizes %s", (label) => {
+    expect(isLoadMoreCommentsLabel(label)).toBe(true);
+  });
+
+  it.each(["View replies", "Add a comment", "Follow"])(
+    "ignores unrelated control %s",
+    (label) => {
+      expect(isLoadMoreCommentsLabel(label)).toBe(false);
+    },
+  );
 });
