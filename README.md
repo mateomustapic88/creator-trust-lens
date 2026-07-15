@@ -12,7 +12,15 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 - Local analysis and local storage
 - No account, backend, paid API, or automatic bulk collection
 
-The first scaffold intentionally scans information already rendered on the current profile page. Post-by-post guided collection comes next, after the extraction approach is tested against real page variations.
+## Guided scan workflow
+
+1. Open a public Instagram profile and start a guided scan.
+2. Creator Trust Lens discovers up to 12 currently visible post links.
+3. Open each post from the side panel and manually load any comments you want included.
+4. Capture the visible sample; nothing is collected until you click.
+5. Finish at any point to calculate a trust score, confidence level, and evidence cards from the combined sample.
+
+The score is withheld when the sample is too small. Instagram markup changes frequently, so the platform adapter is intentionally isolated from the analysis engine.
 
 ## Development
 

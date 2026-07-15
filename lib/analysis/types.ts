@@ -19,6 +19,28 @@ export type ProfileSample = {
   comments: VisibleComment[];
 };
 
+export type DiscoveredProfile = {
+  handle: string;
+  profileUrl: string;
+  followerCount?: number;
+  postUrls: string[];
+};
+
+export type CapturedPost = VisiblePost & {
+  comments: VisibleComment[];
+};
+
+export type ScanSession = {
+  id: string;
+  handle: string;
+  profileUrl: string;
+  followerCount?: number;
+  postUrls: string[];
+  capturedPosts: CapturedPost[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type EvidenceItem = {
   id: "duplicates" | "generic" | "recurring" | "anomalies";
   label: string;
