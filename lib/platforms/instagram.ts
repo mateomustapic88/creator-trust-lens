@@ -104,16 +104,80 @@ function readDocumentPostUrl(document: Document): string | undefined {
 
 function readPostOwner(document: Document): string | undefined {
   const href = document
-    .querySelector<HTMLAnchorElement>('main article header a[href^="/"]')
+    .querySelector<HTMLAnchorElement>(
+      'main article header a[href^="/"], div[role="dialog"] header a[href^="/"]',
+    )
     ?.getAttribute("href");
-  return href?.split("/").filter(Boolean)[0];
+  return readHandleFromHref(href);
 }
 
 function isMetadataText(value: string): boolean {
   return (
-    /^(reply|see translation|edited)$/i.test(value) ||
-    /^\d+\s*(s|m|h|d|w|likes?)$/i.test(value)
+    /^(reply|see translation|edited|follow|following|verified)$/i.test(value) ||
+    /^\d+\s*(s|m|h|d|w|y|likes?|replies?)$/i.test(value)
   );
+}
+
+function readHandleFromHref(href?: string | null): string | undefined {
+  if (!href) return undefined;
+
+  try {
+    const segments = new URL(href, "https://www.instagram.com")
+      .pathname.split("/")
+      .filter(Boolean);
+    if (segments.length !== 1) return undefined;
+    const handle = segments[0];
+    return handle && !RESERVED_PATHS.has(handle) ? handle : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readCommentText(
+  container: HTMLElement,
+  authorLink: HTMLAnchorElement,
+  author: string,
+): string | undefined {
+  const preferredSpans = [
+    ...container.querySelectorAll<HTMLElement>('span[dir="auto"]'),
+  ];
+  const leafSpans = [...container.querySelectorAll<HTMLElement>("span")].filter(
+    (span) => !span.querySelector("span"),
+  );
+
+  const values = [...preferredSpans, ...leafSpans]
+    .filter((span) => !authorLink.contains(span) && !span.closest("time"))
+    .map((span) => span.textContent?.trim() ?? "")
+    .filter(
+      (value) =>
+        value.length > 1 &&
+        value !== author &&
+        !isMetadataText(value),
+    );
+
+  return values.sort((left, right) => right.length - left.length)[0];
+}
+
+function findCommentContainer(
+  authorLink: HTMLAnchorElement,
+): HTMLElement | undefined {
+  let current = authorLink.parentElement;
+
+  for (let depth = 0; current && depth < 8; depth += 1) {
+    if (current.querySelector("time") && current.querySelector("span")) {
+      return current;
+    }
+
+    if (
+      current.matches('article, main, div[role="dialog"]') ||
+      current.parentElement?.matches('article, main, div[role="dialog"]')
+    ) {
+      break;
+    }
+    current = current.parentElement;
+  }
+
+  return undefined;
 }
 
 function readVisibleComments(
@@ -122,24 +186,17 @@ function readVisibleComments(
   owner?: string,
 ): VisibleComment[] {
   const comments: VisibleComment[] = [];
-  const candidates = document.querySelectorAll<HTMLElement>(
-    'main article ul li, div[role="dialog"] ul li',
+  const authorLinks = document.querySelectorAll<HTMLAnchorElement>(
+    'main article a[href^="/"], div[role="dialog"] a[href^="/"]',
   );
 
-  for (const candidate of candidates) {
-    const authorLink = candidate.querySelector<HTMLAnchorElement>('a[href^="/"]');
-    const author = authorLink?.getAttribute("href")?.split("/").filter(Boolean)[0];
+  for (const authorLink of authorLinks) {
+    const author = readHandleFromHref(authorLink.getAttribute("href"));
     if (!author || author === owner || RESERVED_PATHS.has(author)) continue;
 
-    const leafSpans = [...candidate.querySelectorAll("span")].filter(
-      (span) => !span.querySelector("span"),
-    );
-    const text = leafSpans
-      .map((span) => span.textContent?.trim() ?? "")
-      .find(
-        (value) =>
-          value.length > 1 && value !== author && !isMetadataText(value),
-      );
+    const container = findCommentContainer(authorLink);
+    if (!container) continue;
+    const text = readCommentText(container, authorLink, author);
 
     if (!text) continue;
     comments.push({ author, text, postId });

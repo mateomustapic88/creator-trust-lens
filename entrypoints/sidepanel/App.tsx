@@ -136,6 +136,11 @@ export function App() {
       });
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "post") throw new Error("Expected post data.");
+      if (response.post.comments.length === 0) {
+        throw new Error(
+          "No visible comments found. Expand the comments on this post, wait for them to load, then try again.",
+        );
+      }
 
       const nextSession = addCapturedPost(session, response.post);
       setSession(nextSession);
