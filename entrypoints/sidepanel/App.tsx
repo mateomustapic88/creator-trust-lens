@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyzeProfile } from "../../lib/analysis/analyze";
-import type { AnalysisResult, ScanSession } from "../../lib/analysis/types";
+import type {
+  AnalysisResult,
+  ScanMode,
+  ScanSession,
+} from "../../lib/analysis/types";
 import { createDemoProfileSample } from "../../lib/demo/sample";
 import type { ExtensionRequest, ExtensionResponse } from "../../lib/messages";
 import { MESSAGE_TYPES } from "../../lib/messages";
@@ -13,6 +17,11 @@ import {
   isCapturedPost,
   isSessionPost,
 } from "../../lib/scanning/session";
+import {
+  getScanModeConfig,
+  SCAN_MODE_ORDER,
+  SCAN_MODES,
+} from "../../lib/scanning/modes";
 
 const confidenceLabel: Record<AnalysisResult["confidence"], string> = {
   insufficient: "Insufficient data",
@@ -45,6 +54,7 @@ export function App() {
   const [session, setSession] = useState<ScanSession>();
   const [result, setResult] = useState<AnalysisResult>();
   const [showingDemo, setShowingDemo] = useState(false);
+  const [scanMode, setScanMode] = useState<ScanMode>("standard");
   const [activeUrl, setActiveUrl] = useState<string>();
   const [error, setError] = useState<string>();
   const [working, setWorking] = useState(false);
@@ -100,7 +110,7 @@ export function App() {
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "profile") throw new Error("Expected profile data.");
 
-      const nextSession = createScanSession(response.profile);
+      const nextSession = createScanSession(response.profile, scanMode);
       setSession(nextSession);
       await saveSession(nextSession);
     } catch (scanError) {
@@ -130,10 +140,11 @@ export function App() {
     setError(undefined);
 
     try {
+      const config = getScanModeConfig(session.mode);
       const response = await sendToActiveTab({
         type: MESSAGE_TYPES.capturePost,
         postUrl: activeUrl,
-        maxComments: 150,
+        maxComments: config.commentLimit,
       });
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "post") throw new Error("Expected post data.");
@@ -173,6 +184,9 @@ export function App() {
   }
 
   const score = result?.trustScore;
+  const activeModeConfig = session
+    ? getScanModeConfig(session.mode)
+    : getScanModeConfig(scanMode);
 
   return (
     <main className="shell">
@@ -192,6 +206,22 @@ export function App() {
             Open a public Instagram profile. You will review recent posts and
             choose exactly which visible comments to include.
           </p>
+          <div className="mode-picker" aria-label="Scan depth">
+            {SCAN_MODE_ORDER.map((mode) => {
+              const config = SCAN_MODES[mode];
+              return (
+                <button
+                  className={scanMode === mode ? "mode-option selected" : "mode-option"}
+                  key={mode}
+                  onClick={() => setScanMode(mode)}
+                  type="button"
+                >
+                  <strong>{config.label}</strong>
+                  <span>{config.postLimit} posts · {config.commentLimit} comments each</span>
+                </button>
+              );
+            })}
+          </div>
           <button onClick={startScan} disabled={working}>
             {working ? "DISCOVERING POSTS…" : "START GUIDED SCAN"}
           </button>
@@ -208,6 +238,7 @@ export function App() {
             <div>
               <p className="eyebrow">ACTIVE SCAN</p>
               <h2>@{session.handle}</h2>
+              <span className="mode-badge">{activeModeConfig.label} scan</span>
             </div>
             <span className="progress-count">
               {session.capturedPosts.length}/{session.postUrls.length}
@@ -227,7 +258,8 @@ export function App() {
               <strong>Post ready to capture</strong>
               <p>
                 Creator Trust Lens will load comment batches up to a safe sample
-                limit, then capture the visible results. This can take a few seconds.
+                limit of {activeModeConfig.commentLimit}, then capture the visible
+                results. This can take a few seconds.
               </p>
               <button onClick={captureCurrentPost} disabled={working}>
                 {working ? "LOADING COMMENTS…" : "LOAD AND CAPTURE SAMPLE"}

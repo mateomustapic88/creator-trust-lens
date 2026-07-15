@@ -110,6 +110,40 @@ function recurringEvidence(
   };
 }
 
+function diversityEvidence(comments: VisibleComment[]): EvidenceItem {
+  if (comments.length === 0) {
+    return {
+      id: "diversity",
+      label: "Audience diversity",
+      value: "N/A",
+      score: 0,
+      explanation: "No visible commenters were available to evaluate diversity.",
+      examples: [],
+    };
+  }
+
+  const authorCounts = new Map<string, number>();
+  for (const comment of comments) {
+    authorCounts.set(comment.author, (authorCounts.get(comment.author) ?? 0) + 1);
+  }
+
+  const uniqueRatio = authorCounts.size / comments.length;
+  const concentratedAuthors = [...authorCounts.entries()]
+    .filter(([, count]) => count >= 3)
+    .sort((left, right) => right[1] - left[1]);
+
+  return {
+    id: "diversity",
+    label: "Audience diversity",
+    value: `${Math.round(uniqueRatio * 100)}% unique`,
+    score: clamp(Math.max(0, 0.65 - uniqueRatio) * 170),
+    explanation: "Share of visible comments written by different accounts.",
+    examples: concentratedAuthors
+      .slice(0, 3)
+      .map(([author, count]) => `@${author} wrote ${count} comments`),
+  };
+}
+
 function anomalyEvidence(sample: ProfileSample): EvidenceItem {
   const rates = sample.posts
     .map((post) => {
@@ -151,15 +185,17 @@ export function analyzeProfile(sample: ProfileSample): AnalysisResult {
     duplicateEvidence(sample.comments),
     genericEvidence(sample.comments),
     recurringEvidence(sample.comments, sample.posts.length),
+    diversityEvidence(sample.comments),
     anomalyEvidence(sample),
   ];
   const confidence = getConfidence(sample.posts.length, sample.comments.length);
 
   const suspicionScore = Math.round(
-    evidence[0]!.score * 0.35 +
+    evidence[0]!.score * 0.25 +
       evidence[1]!.score * 0.15 +
-      evidence[2]!.score * 0.3 +
-      evidence[3]!.score * 0.2,
+      evidence[2]!.score * 0.25 +
+      evidence[3]!.score * 0.2 +
+      evidence[4]!.score * 0.15,
   );
 
   return {

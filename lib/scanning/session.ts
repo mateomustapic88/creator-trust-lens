@@ -2,8 +2,10 @@ import type {
   CapturedPost,
   DiscoveredProfile,
   ProfileSample,
+  ScanMode,
   ScanSession,
 } from "../analysis/types";
+import { getScanModeConfig } from "./modes";
 
 export const ACTIVE_SESSION_KEY = "creatorTrustLens:activeSession";
 
@@ -14,15 +16,23 @@ function canonicalPostUrl(value: string): string {
   return url.href.endsWith("/") ? url.href : `${url.href}/`;
 }
 
-export function createScanSession(profile: DiscoveredProfile): ScanSession {
+export function createScanSession(
+  profile: DiscoveredProfile,
+  mode: ScanMode = "standard",
+): ScanSession {
   const timestamp = new Date().toISOString();
-  const postUrls = [...new Set(profile.postUrls.map(canonicalPostUrl))].slice(0, 12);
+  const config = getScanModeConfig(mode);
+  const postUrls = [...new Set(profile.postUrls.map(canonicalPostUrl))].slice(
+    0,
+    config.postLimit,
+  );
 
   return {
     id: crypto.randomUUID(),
     handle: profile.handle,
     profileUrl: profile.profileUrl,
     followerCount: profile.followerCount,
+    mode,
     postUrls,
     capturedPosts: [],
     createdAt: timestamp,

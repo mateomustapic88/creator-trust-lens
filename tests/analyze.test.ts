@@ -48,4 +48,18 @@ describe("profile analysis", () => {
     expect(duplicates?.score).toBeGreaterThan(50);
     expect(generic?.score).toBeGreaterThan(50);
   });
+
+  it("flags a sample dominated by very few commenters", () => {
+    const comments = Array.from({ length: 90 }, (_, index) => ({
+      author: `frequent-${index % 5}`,
+      text: `A distinct comment number ${index}`,
+      postId: `post-${index % 6}`,
+    }));
+    const result = analyzeProfile(sample({ comments }));
+    const diversity = result.evidence.find((item) => item.id === "diversity");
+
+    expect(diversity?.score).toBeGreaterThan(80);
+    expect(diversity?.value).toBe("6% unique");
+    expect(diversity?.examples).not.toHaveLength(0);
+  });
 });

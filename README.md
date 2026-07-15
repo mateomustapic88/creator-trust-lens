@@ -22,6 +22,16 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 
 The score is withheld when the sample is too small. Instagram markup changes frequently, so the platform adapter is intentionally isolated from the analysis engine.
 
+### Scan modes
+
+- **Quick:** 5 posts, up to 50 comments per post
+- **Standard:** 8 posts, up to 150 comments per post
+- **Deep:** 12 posts, up to 300 comments per post
+
+The report combines repeated and low-information comments, recurring accounts,
+audience diversity, and engagement variation. These remain observable signals,
+not conclusions about how engagement was obtained.
+
 ## Demo workflow
 
 Click **View sample report** in the side panel to present a clearly labelled,

@@ -30,11 +30,14 @@ export type CapturedPost = VisiblePost & {
   comments: VisibleComment[];
 };
 
+export type ScanMode = "quick" | "standard" | "deep";
+
 export type ScanSession = {
   id: string;
   handle: string;
   profileUrl: string;
   followerCount?: number;
+  mode?: ScanMode;
   postUrls: string[];
   capturedPosts: CapturedPost[];
   createdAt: string;
@@ -42,7 +45,7 @@ export type ScanSession = {
 };
 
 export type EvidenceItem = {
-  id: "duplicates" | "generic" | "recurring" | "anomalies";
+  id: "duplicates" | "generic" | "recurring" | "diversity" | "anomalies";
   label: string;
   value: string;
   score: number;

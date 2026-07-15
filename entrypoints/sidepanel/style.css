@@ -65,11 +65,26 @@ button:disabled { cursor: wait; opacity: 0.68; }
   background: rgba(255, 255, 255, 0.06);
   box-shadow: none;
 }
+.mode-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 17px 0 4px; }
+.empty-card .mode-option {
+  margin: 0;
+  padding: 10px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  color: #aaa6b8;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: none;
+}
+.empty-card .mode-option.selected { border-color: #a993ff; color: white; background: rgba(126, 76, 255, 0.15); }
+.mode-option strong, .mode-option span { display: block; }
+.mode-option strong { font-size: 11px; }
+.mode-option span { margin-top: 4px; color: #858092; font-size: 8px; line-height: 1.35; }
 .error { color: #ff7896; font-size: 13px; }
 
 .session-card { border-radius: 20px; padding: 20px; }
 .session-heading { display: flex; align-items: center; justify-content: space-between; }
 .session-heading h2 { margin: 4px 0 0; }
+.mode-badge { display: inline-block; margin-top: 6px; color: #a993ff; font-size: 10px; font-weight: 800; }
 .progress-count { color: #ff5e8d; font-size: 22px; font-weight: 900; }
 .progress-track { height: 6px; margin: 17px 0; overflow: hidden; border-radius: 20px; background: rgba(255, 255, 255, 0.08); }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7d4bff, #ff376f); transition: width 180ms ease; }

@@ -39,6 +39,24 @@ describe("guided scan session", () => {
     ]);
   });
 
+  it.each([
+    ["quick", 5],
+    ["standard", 8],
+    ["deep", 12],
+  ] as const)("limits a %s scan to %i posts", (mode, expected) => {
+    const expandedProfile = {
+      ...profile,
+      postUrls: Array.from(
+        { length: 15 },
+        (_, index) => `https://www.instagram.com/p/${index}/`,
+      ),
+    };
+
+    const session = createScanSession(expandedProfile, mode);
+    expect(session.mode).toBe(mode);
+    expect(session.postUrls).toHaveLength(expected);
+  });
+
   it("advances after a post is captured", () => {
     const session = addCapturedPost(createScanSession(profile), capture);
     expect(getNextPostUrl(session)).toBe("https://www.instagram.com/p/two/");
