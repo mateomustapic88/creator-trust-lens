@@ -105,7 +105,7 @@ function readDocumentPostUrl(document: Document): string | undefined {
 function readPostOwner(document: Document): string | undefined {
   const href = document
     .querySelector<HTMLAnchorElement>(
-      'main article header a[href^="/"], div[role="dialog"] header a[href^="/"]',
+      'main header a[href], div[role="dialog"] header a[href]',
     )
     ?.getAttribute("href");
   return readHandleFromHref(href);
@@ -163,8 +163,13 @@ function findCommentContainer(
 ): HTMLElement | undefined {
   let current = authorLink.parentElement;
 
-  for (let depth = 0; current && depth < 8; depth += 1) {
-    if (current.querySelector("time") && current.querySelector("span")) {
+  for (let depth = 0; current && depth < 12; depth += 1) {
+    const hasTime = Boolean(current.querySelector("time"));
+    const hasRelativeTime = [...current.querySelectorAll("a, span")].some(
+      (element) => /^\d+\s*[smhdwy]$/i.test(element.textContent?.trim() ?? ""),
+    );
+
+    if ((hasTime || hasRelativeTime) && current.querySelector("span")) {
       return current;
     }
 
@@ -187,7 +192,7 @@ function readVisibleComments(
 ): VisibleComment[] {
   const comments: VisibleComment[] = [];
   const authorLinks = document.querySelectorAll<HTMLAnchorElement>(
-    'main article a[href^="/"], div[role="dialog"] a[href^="/"]',
+    'main a[href], div[role="dialog"] a[href]',
   );
 
   for (const authorLink of authorLinks) {
@@ -270,11 +275,27 @@ export function captureInstagramPost(
 
   const owner = readPostOwner(document);
   const counts = readPostCounts(document);
+  const comments = readVisibleComments(document, id, owner);
+
+  if (comments.length === 0) {
+    const scopedProfileLinks = [
+      ...document.querySelectorAll<HTMLAnchorElement>(
+        'main a[href], div[role="dialog"] a[href]',
+      ),
+    ].filter((link) => readHandleFromHref(link.getAttribute("href"))).length;
+    const timestamps = document.querySelectorAll(
+      'main time, div[role="dialog"] time',
+    ).length;
+
+    throw new Error(
+      `No visible comments found. Expand comments and try again. Diagnostic: ${scopedProfileLinks} profile links, ${timestamps} timestamps.`,
+    );
+  }
 
   return {
     id,
     url: captureUrl,
     ...counts,
-    comments: readVisibleComments(document, id, owner),
+    comments,
   };
 }
