@@ -7,7 +7,7 @@ export const MESSAGE_TYPES = {
 
 export type ExtensionRequest =
   | { type: typeof MESSAGE_TYPES.discoverProfile }
-  | { type: typeof MESSAGE_TYPES.capturePost };
+  | { type: typeof MESSAGE_TYPES.capturePost; postUrl?: string };
 
 export type ExtensionResponse =
   | { ok: true; kind: "profile"; profile: DiscoveredProfile }

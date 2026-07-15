@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { analyzeProfile } from "../../lib/analysis/analyze";
 import type { AnalysisResult, ScanSession } from "../../lib/analysis/types";
 import { createDemoProfileSample } from "../../lib/demo/sample";
-import type { ExtensionResponse } from "../../lib/messages";
+import type { ExtensionRequest, ExtensionResponse } from "../../lib/messages";
 import { MESSAGE_TYPES } from "../../lib/messages";
 import {
   ACTIVE_SESSION_KEY,
@@ -77,12 +77,14 @@ export function App() {
   const viewingSessionPost = session ? isSessionPost(session, activeUrl) : false;
   const viewingCapturedPost = session ? isCapturedPost(session, activeUrl) : false;
 
-  async function sendToActiveTab(type: string): Promise<ExtensionResponse> {
+  async function sendToActiveTab(
+    message: ExtensionRequest,
+  ): Promise<ExtensionResponse> {
     const tab = await getActiveTab();
     if (!tab?.id || !tab.url?.startsWith("https://www.instagram.com/")) {
       throw new Error("Open Instagram in the active tab first.");
     }
-    return chrome.tabs.sendMessage(tab.id, { type });
+    return chrome.tabs.sendMessage(tab.id, message);
   }
 
   async function startScan() {
@@ -92,7 +94,9 @@ export function App() {
     setShowingDemo(false);
 
     try {
-      const response = await sendToActiveTab(MESSAGE_TYPES.discoverProfile);
+      const response = await sendToActiveTab({
+        type: MESSAGE_TYPES.discoverProfile,
+      });
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "profile") throw new Error("Expected profile data.");
 
@@ -126,7 +130,10 @@ export function App() {
     setError(undefined);
 
     try {
-      const response = await sendToActiveTab(MESSAGE_TYPES.capturePost);
+      const response = await sendToActiveTab({
+        type: MESSAGE_TYPES.capturePost,
+        postUrl: activeUrl,
+      });
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "post") throw new Error("Expected post data.");
 

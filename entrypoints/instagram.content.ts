@@ -23,7 +23,11 @@ export default defineContentScript({
           }
 
           if (message?.type === MESSAGE_TYPES.capturePost) {
-            const post = captureInstagramPost(document, location);
+            const post = captureInstagramPost(
+              document,
+              location,
+              message.postUrl,
+            );
             const response: ExtensionResponse = {
               ok: true,
               kind: "post",

@@ -78,10 +78,28 @@ function readVisiblePosts(document: Document): VisiblePost[] {
   return [...unique.values()].slice(0, 12);
 }
 
-function findPostId(pathname: string): string | undefined {
+export function parseInstagramPostId(value: string): string | undefined {
+  let pathname = value;
+
+  try {
+    pathname = new URL(value, "https://www.instagram.com").pathname;
+  } catch {
+    // Fall back to parsing the supplied value as a pathname.
+  }
+
   const segments = pathname.split("/").filter(Boolean);
-  if (!segments[0] || !["p", "reel"].includes(segments[0])) return undefined;
-  return segments[1];
+  const typeIndex = segments.findIndex((segment) =>
+    ["p", "reel", "reels"].includes(segment),
+  );
+  if (typeIndex < 0) return undefined;
+  return segments[typeIndex + 1];
+}
+
+function readDocumentPostUrl(document: Document): string | undefined {
+  return (
+    document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href ??
+    document.querySelector<HTMLMetaElement>('meta[property="og:url"]')?.content
+  );
 }
 
 function readPostOwner(document: Document): string | undefined {
@@ -175,8 +193,20 @@ export function discoverInstagramProfile(
 export function captureInstagramPost(
   document: Document,
   pageLocation: Pick<Location, "href" | "pathname">,
+  expectedPostUrl?: string,
 ): CapturedPost {
-  const id = findPostId(pageLocation.pathname);
+  const documentPostUrl = readDocumentPostUrl(document);
+  const captureUrl = expectedPostUrl ?? documentPostUrl ?? pageLocation.href;
+  const id = [
+    expectedPostUrl,
+    pageLocation.href,
+    pageLocation.pathname,
+    documentPostUrl,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(parseInstagramPostId)
+    .find(Boolean);
+
   if (!id) {
     throw new Error("Open an Instagram post or reel before capturing comments.");
   }
@@ -186,7 +216,7 @@ export function captureInstagramPost(
 
   return {
     id,
-    url: pageLocation.href,
+    url: captureUrl,
     ...counts,
     comments: readVisibleComments(document, id, owner),
   };
