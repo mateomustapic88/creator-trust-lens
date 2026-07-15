@@ -59,6 +59,12 @@ button:disabled { cursor: wait; opacity: 0.68; }
 .empty-card h2 { margin: 8px 0 10px; font-size: 28px; line-height: 1.05; letter-spacing: -0.05em; }
 .empty-card > p:not(.eyebrow, .error) { color: #aaa6b8; line-height: 1.55; }
 .empty-card button { margin-top: 14px; }
+.empty-card .demo-button {
+  margin-top: 8px;
+  color: #c8c2d9;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
 .error { color: #ff7896; font-size: 13px; }
 
 .session-card { border-radius: 20px; padding: 20px; }
@@ -76,6 +82,18 @@ button:disabled { cursor: wait; opacity: 0.68; }
 .text-button { margin-top: 4px; color: #858092; background: transparent; box-shadow: none; font-size: 11px; }
 
 .score-card { border-radius: 22px; padding: 18px; text-align: center; }
+.demo-badge {
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 5px 8px;
+  border: 1px solid rgba(169, 147, 255, 0.3);
+  border-radius: 999px;
+  color: #b8a6ff;
+  background: rgba(126, 76, 255, 0.1);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
 .handle { margin: 0 0 16px; color: #c8c2d9; }
 .score-ring {
   display: grid;
@@ -91,6 +109,7 @@ button:disabled { cursor: wait; opacity: 0.68; }
 .score-ring strong { display: block; font-size: 54px; line-height: 0.95; }
 .score-ring span { margin-top: 7px; color: #ff6a92; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
 .confidence { margin: 16px 0 3px; font-weight: 800; }
+.review-label { margin: 0 0 5px; color: #ff6a92; font-size: 12px; font-weight: 800; }
 .sample { margin: 0; color: #8e899e; font-size: 12px; }
 
 .evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }

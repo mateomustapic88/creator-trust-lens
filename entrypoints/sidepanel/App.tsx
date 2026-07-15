@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyzeProfile } from "../../lib/analysis/analyze";
 import type { AnalysisResult, ScanSession } from "../../lib/analysis/types";
+import { createDemoProfileSample } from "../../lib/demo/sample";
 import type { ExtensionResponse } from "../../lib/messages";
 import { MESSAGE_TYPES } from "../../lib/messages";
 import {
@@ -20,6 +21,13 @@ const confidenceLabel: Record<AnalysisResult["confidence"], string> = {
   high: "High confidence",
 };
 
+function getReviewLabel(result: AnalysisResult): string {
+  if (result.trustScore === undefined) return "More data required";
+  if (result.trustScore >= 75) return "Lower observed risk";
+  if (result.trustScore >= 50) return "Review recommended";
+  return "Elevated signals";
+}
+
 async function getActiveTab(): Promise<chrome.tabs.Tab | undefined> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
@@ -36,6 +44,7 @@ async function saveSession(session?: ScanSession): Promise<void> {
 export function App() {
   const [session, setSession] = useState<ScanSession>();
   const [result, setResult] = useState<AnalysisResult>();
+  const [showingDemo, setShowingDemo] = useState(false);
   const [activeUrl, setActiveUrl] = useState<string>();
   const [error, setError] = useState<string>();
   const [working, setWorking] = useState(false);
@@ -80,6 +89,7 @@ export function App() {
     setWorking(true);
     setError(undefined);
     setResult(undefined);
+    setShowingDemo(false);
 
     try {
       const response = await sendToActiveTab(MESSAGE_TYPES.discoverProfile);
@@ -94,6 +104,13 @@ export function App() {
     } finally {
       setWorking(false);
     }
+  }
+
+  function openDemoReport() {
+    setError(undefined);
+    setSession(undefined);
+    setResult(analyzeProfile(createDemoProfileSample()));
+    setShowingDemo(true);
   }
 
   async function openNextPost() {
@@ -138,6 +155,7 @@ export function App() {
     setSession(undefined);
     setResult(undefined);
     setError(undefined);
+    setShowingDemo(false);
     await saveSession(undefined);
   }
 
@@ -163,6 +181,9 @@ export function App() {
           </p>
           <button onClick={startScan} disabled={working}>
             {working ? "DISCOVERING POSTS…" : "START GUIDED SCAN"}
+          </button>
+          <button className="demo-button" onClick={openDemoReport} disabled={working}>
+            VIEW SAMPLE REPORT
           </button>
           {error && <p className="error">{error}</p>}
         </section>
@@ -243,12 +264,14 @@ export function App() {
       {result && (
         <>
           <section className="score-card">
+            {showingDemo && <p className="demo-badge">SAMPLE DATA</p>}
             <p className="handle">@{result.handle}</p>
             <div className="score-ring">
               <strong>{score ?? "—"}</strong>
               <span>TRUST SCORE</span>
             </div>
             <p className="confidence">{confidenceLabel[result.confidence]}</p>
+            <p className="review-label">{getReviewLabel(result)}</p>
             <p className="sample">
               {result.postsScanned} posts · {result.commentsScanned} comments scanned
             </p>
@@ -269,7 +292,13 @@ export function App() {
             ))}
           </section>
 
-          <button className="secondary" onClick={() => setResult(undefined)}>
+          <button
+            className="secondary"
+            onClick={() => {
+              setResult(undefined);
+              setShowingDemo(false);
+            }}
+          >
             START ANOTHER SCAN
           </button>
         </>

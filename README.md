@@ -22,6 +22,12 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 
 The score is withheld when the sample is too small. Instagram markup changes frequently, so the platform adapter is intentionally isolated from the analysis engine.
 
+## Demo workflow
+
+Click **View sample report** in the side panel to present a clearly labelled,
+prebuilt report without visiting Instagram. The sample runs through the same
+local analysis engine as a real guided scan and is never saved as a real scan.
+
 ## Development
 
 ```bash
