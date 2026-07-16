@@ -20,12 +20,12 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 4. Open the full comments list and scroll it manually. The extension observes
    DOM changes and accumulates unique comments across virtualized windows, but
    never clicks, scrolls, or generates Instagram activity itself.
-5. Save the sample after the selected mode target is reached. When Instagram
-   reports fewer comments than the target, collect all available comments.
-6. Finish after every queued post is captured or explicitly skipped to calculate a trust score, confidence level, and evidence cards from the combined sample.
+5. Save a partial sample at any time, or continue scrolling until the selected
+   mode target is reached. Saving automatically opens the next queued post.
+6. Finish at any time after capturing at least one post. Smaller samples receive
+   lower confidence, and scores are withheld when evidence is insufficient.
 
-The report cannot finish until every queued post is captured or explicitly
-skipped, and every captured post satisfies the selected mode's comment target.
+Scan modes define recommended evidence targets, not mandatory quotas.
 
 Instagram comment dialogs use virtualized infinite scrolling. The passive
 collector watches the active dialog and saves every rendered window before

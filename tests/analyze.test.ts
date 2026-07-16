@@ -35,6 +35,19 @@ describe("profile analysis", () => {
     expect(result.trustScore).toBeUndefined();
   });
 
+  it("allows a partial multi-post scan with low confidence", () => {
+    const partial = sample({
+      posts: sample().posts.slice(0, 4),
+      comments: sample().comments.slice(0, 61),
+    });
+    const result = analyzeProfile(partial);
+
+    expect(result.postsScanned).toBe(4);
+    expect(result.commentsScanned).toBe(61);
+    expect(result.confidence).toBe("low");
+    expect(result.trustScore).toBeDefined();
+  });
+
   it("raises evidence scores for repeated generic comments", () => {
     const comments = Array.from({ length: 90 }, (_, index) => ({
       author: `bot-${index}`,

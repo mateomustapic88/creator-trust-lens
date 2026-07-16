@@ -361,12 +361,6 @@ export function createPassiveInstagramCollector(
       );
     }
 
-    if (comments.length < target) {
-      throw new Error(
-        `Keep scrolling: collected ${comments.length} of ${target} required comments. The extension is observing passively and will not scroll Instagram for you.`,
-      );
-    }
-
     observer.disconnect();
     cancelled = true;
     return {

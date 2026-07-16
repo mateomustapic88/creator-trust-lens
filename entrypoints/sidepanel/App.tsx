@@ -245,10 +245,17 @@ export function App() {
       }
 
       const nextSession = addCapturedPost(session, response.post);
+      const followingPostUrl = getNextPostUrl(nextSession);
       setSession(nextSession);
       await saveSession(nextSession);
       setCollecting(false);
       setCaptureProgress(undefined);
+
+      const tab = await getActiveTab();
+      if (followingPostUrl && tab?.id) {
+        await chrome.tabs.update(tab.id, { url: followingPostUrl });
+        setActiveUrl(followingPostUrl);
+      }
     } catch (captureError) {
       setError(
         captureError instanceof Error ? captureError.message : "Capture failed.",
@@ -269,35 +276,13 @@ export function App() {
 
   async function finishScan() {
     if (!session) return;
-    const config = getScanModeConfig(session.mode);
-    const incompletePost = session.capturedPosts.find((post) => {
-      const requiredComments = Math.min(
-        config.commentLimit,
-        post.commentCount ?? config.commentLimit,
+    if (collecting) {
+      await sendToActiveTab({ type: MESSAGE_TYPES.cancelCollection }).catch(
+        () => undefined,
       );
-      return post.comments.length < requiredComments;
-    });
-
-    if (incompletePost) {
-      const requiredComments = Math.min(
-        config.commentLimit,
-        incompletePost.commentCount ?? config.commentLimit,
-      );
-      setError(
-        `A captured post has only ${incompletePost.comments.length} of ${requiredComments} required comments. Start a new scan to recapture it with the updated loader.`,
-      );
-      return;
+      setCollecting(false);
+      setCaptureProgress(undefined);
     }
-
-    const reviewedCount =
-      session.capturedPosts.length + (session.skippedPostUrls?.length ?? 0);
-    if (reviewedCount < session.postUrls.length) {
-      setError(
-        `Review or skip the remaining ${session.postUrls.length - reviewedCount} posts before finishing this ${config.label.toLowerCase()} scan.`,
-      );
-      return;
-    }
-
     const analysis = analyzeProfile(buildProfileSample(session));
     setResult(analysis);
     await chrome.storage.local.set({ [`scan:${analysis.handle}`]: analysis });
@@ -356,7 +341,7 @@ export function App() {
                   type="button"
                 >
                   <strong>{config.label}</strong>
-                  <span>{config.postLimit} posts · {config.commentLimit} comments each</span>
+                  <span>{config.postLimit} post target · {config.commentLimit} comments each</span>
                 </button>
               );
             })}
@@ -398,7 +383,7 @@ export function App() {
               <p>
                 {collecting
                   ? "Open the full comments list and scroll it manually. Creator Trust Lens observes visible comments without clicking or scrolling Instagram."
-                  : `Start the passive collector, then manually scroll comments until the ${activeModeConfig.commentLimit}-comment target is reached.`}
+                  : `Start the passive collector, then manually scroll toward the ${activeModeConfig.commentLimit}-comment target. You can save a partial sample at any time.`}
               </p>
               {collecting && captureProgress && (
                 <div className="collection-progress">
@@ -423,13 +408,13 @@ export function App() {
               {collecting ? (
                 <button
                   onClick={savePassiveCollection}
-                  disabled={working || captureProgress?.status !== "ready"}
+                  disabled={working || !captureProgress?.collected}
                 >
                   {working
                     ? "SAVING SAMPLE…"
                     : captureProgress?.status === "ready"
                       ? "SAVE COLLECTED SAMPLE"
-                      : `COLLECTING ${captureProgress?.collected ?? 0}/${captureProgress?.target ?? activeModeConfig.commentLimit}`}
+                      : `SAVE PARTIAL ${captureProgress?.collected ?? 0}/${captureProgress?.target ?? activeModeConfig.commentLimit}`}
                 </button>
               ) : (
                 <button onClick={startPassiveCollection} disabled={working}>
