@@ -65,6 +65,7 @@ export function App() {
   const [activeUrl, setActiveUrl] = useState<string>();
   const [error, setError] = useState<string>();
   const [working, setWorking] = useState(false);
+  const [collecting, setCollecting] = useState(false);
   const [captureProgress, setCaptureProgress] = useState<CaptureProgress>();
 
   useEffect(() => {
@@ -161,15 +162,25 @@ export function App() {
     await chrome.tabs.update(tab.id, { url: nextPostUrl });
     setActiveUrl(nextPostUrl);
     setError(undefined);
+    setCollecting(false);
+    setCaptureProgress(undefined);
   }
 
   async function skipCurrentPost() {
     if (!session || !activeUrl) return;
 
+    if (collecting) {
+      await sendToActiveTab({ type: MESSAGE_TYPES.cancelCollection }).catch(
+        () => undefined,
+      );
+    }
+
     const nextSession = skipPost(session, activeUrl);
     const followingPostUrl = getNextPostUrl(nextSession);
     setSession(nextSession);
     setError(undefined);
+    setCollecting(false);
+    setCaptureProgress(undefined);
     await saveSession(nextSession);
 
     const tab = await getActiveTab();
@@ -179,17 +190,51 @@ export function App() {
     }
   }
 
-  async function captureCurrentPost() {
+  async function startPassiveCollection() {
+    if (!session) return;
+    setWorking(true);
+    setError(undefined);
+    setCaptureProgress(undefined);
+
+    try {
+      const config = getScanModeConfig(session.mode);
+      const response = await sendToActiveTab({
+        type: MESSAGE_TYPES.startCollection,
+        postUrl: activeUrl,
+        maxComments: config.commentLimit,
+      });
+      if (!response.ok) throw new Error(response.error);
+      if (response.kind !== "collection") {
+        throw new Error("Expected collection status.");
+      }
+      setCaptureProgress({
+        type: MESSAGE_TYPES.captureProgress,
+        postId: "current",
+        collected: response.collected,
+        target: response.target,
+        status:
+          response.collected >= response.target ? "ready" : "collecting",
+      });
+      setCollecting(true);
+    } catch (captureError) {
+      setError(
+        captureError instanceof Error
+          ? captureError.message
+          : "Unable to start passive collection.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function savePassiveCollection() {
     if (!session) return;
     setWorking(true);
     setError(undefined);
 
     try {
-      const config = getScanModeConfig(session.mode);
       const response = await sendToActiveTab({
-        type: MESSAGE_TYPES.capturePost,
-        postUrl: activeUrl,
-        maxComments: config.commentLimit,
+        type: MESSAGE_TYPES.finishCollection,
       });
       if (!response.ok) throw new Error(response.error);
       if (response.kind !== "post") throw new Error("Expected post data.");
@@ -202,6 +247,7 @@ export function App() {
       const nextSession = addCapturedPost(session, response.post);
       setSession(nextSession);
       await saveSession(nextSession);
+      setCollecting(false);
       setCaptureProgress(undefined);
     } catch (captureError) {
       setError(
@@ -210,6 +256,15 @@ export function App() {
     } finally {
       setWorking(false);
     }
+  }
+
+  async function cancelPassiveCollection() {
+    await sendToActiveTab({ type: MESSAGE_TYPES.cancelCollection }).catch(
+      () => undefined,
+    );
+    setCollecting(false);
+    setCaptureProgress(undefined);
+    setError(undefined);
   }
 
   async function finishScan() {
@@ -251,10 +306,17 @@ export function App() {
   }
 
   async function cancelScan() {
+    if (collecting) {
+      await sendToActiveTab({ type: MESSAGE_TYPES.cancelCollection }).catch(
+        () => undefined,
+      );
+    }
     setSession(undefined);
     setResult(undefined);
     setError(undefined);
     setShowingDemo(false);
+    setCollecting(false);
+    setCaptureProgress(undefined);
     await saveSession(undefined);
   }
 
@@ -332,13 +394,13 @@ export function App() {
 
           {viewingSessionPost && !viewingCapturedPost ? (
             <div className="instruction">
-              <strong>Post ready to capture</strong>
+              <strong>{collecting ? "Passive collection active" : "Post ready to collect"}</strong>
               <p>
-                Creator Trust Lens will load comment batches up to a safe sample
-                limit of {activeModeConfig.commentLimit}, then capture the visible
-                results. This can take a few seconds.
+                {collecting
+                  ? "Open the full comments list and scroll it manually. Creator Trust Lens observes visible comments without clicking or scrolling Instagram."
+                  : `Start the passive collector, then manually scroll comments until the ${activeModeConfig.commentLimit}-comment target is reached.`}
               </p>
-              {working && captureProgress && (
+              {collecting && captureProgress && (
                 <div className="collection-progress">
                   <div>
                     <span>Comments collected</span>
@@ -351,16 +413,34 @@ export function App() {
                       }}
                     />
                   </div>
-                  <small>Loading batch {captureProgress.attempt} of {captureProgress.maxAttempts}</small>
+                  <small>
+                    {captureProgress.status === "ready"
+                      ? "Target reached. Save this sample."
+                      : "Keep scrolling Instagram comments manually."}
+                  </small>
                 </div>
               )}
-              <button onClick={captureCurrentPost} disabled={working}>
-                {working && captureProgress
-                  ? `LOADING ${captureProgress.collected}/${captureProgress.target}…`
-                  : working
-                    ? "PREPARING COMMENTS…"
-                    : "LOAD AND CAPTURE SAMPLE"}
-              </button>
+              {collecting ? (
+                <button
+                  onClick={savePassiveCollection}
+                  disabled={working || captureProgress?.status !== "ready"}
+                >
+                  {working
+                    ? "SAVING SAMPLE…"
+                    : captureProgress?.status === "ready"
+                      ? "SAVE COLLECTED SAMPLE"
+                      : `COLLECTING ${captureProgress?.collected ?? 0}/${captureProgress?.target ?? activeModeConfig.commentLimit}`}
+                </button>
+              ) : (
+                <button onClick={startPassiveCollection} disabled={working}>
+                  {working ? "STARTING…" : "START PASSIVE COLLECTION"}
+                </button>
+              )}
+              {collecting && (
+                <button className="text-button" onClick={cancelPassiveCollection}>
+                  Stop collection
+                </button>
+              )}
               <button
                 className="text-button"
                 onClick={skipCurrentPost}

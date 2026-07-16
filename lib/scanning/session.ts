@@ -8,7 +8,7 @@ import type {
 import { getScanModeConfig } from "./modes";
 
 export const ACTIVE_SESSION_KEY = "creatorTrustLens:activeSession";
-export const CURRENT_COLLECTOR_VERSION = 2;
+export const CURRENT_COLLECTOR_VERSION = 3;
 
 function canonicalPostUrl(value: string): string {
   const url = new URL(value);

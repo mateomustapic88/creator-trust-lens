@@ -16,19 +16,20 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 
 1. Open a public Instagram profile and start a guided scan.
 2. Creator Trust Lens discovers up to 12 currently visible post links.
-3. Open each post from the side panel and choose **Load and capture sample**.
-4. The extension accumulates unique comments across loaded and virtualized batches.
-   It requires the selected mode target for each post, unless Instagram reports
-   that the post has fewer comments, in which case it collects all available
-   comments. Nothing is collected until you click.
-5. Finish after every queued post is captured or explicitly skipped to calculate a trust score, confidence level, and evidence cards from the combined sample.
+3. Open each post from the side panel and choose **Start passive collection**.
+4. Open the full comments list and scroll it manually. The extension observes
+   DOM changes and accumulates unique comments across virtualized windows, but
+   never clicks, scrolls, or generates Instagram activity itself.
+5. Save the sample after the selected mode target is reached. When Instagram
+   reports fewer comments than the target, collect all available comments.
+6. Finish after every queued post is captured or explicitly skipped to calculate a trust score, confidence level, and evidence cards from the combined sample.
 
 The report cannot finish until every queued post is captured or explicitly
 skipped, and every captured post satisfies the selected mode's comment target.
 
-Instagram comment dialogs use virtualized infinite scrolling. The collector
-targets the active dialog, moves through it in measured viewport steps, and
-accumulates every rendered window before Instagram removes it from the DOM.
+Instagram comment dialogs use virtualized infinite scrolling. The passive
+collector watches the active dialog and saves every rendered window before
+Instagram removes it from the DOM while the user scrolls.
 Sessions created by older collector versions are discarded to prevent partial
 legacy captures from entering a new report.
 

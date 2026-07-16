@@ -16,16 +16,18 @@ const RESERVED_PATHS = new Set([
 ]);
 
 const DEFAULT_COMMENT_LIMIT = 150;
-const MAX_LOAD_ATTEMPTS = 40;
-const LOAD_DELAY_MS = 700;
 
 export type CommentLoadProgress = {
   postId: string;
   collected: number;
   target: number;
-  attempt: number;
-  maxAttempts: number;
-  status: "loading" | "complete" | "stalled";
+  status: "collecting" | "ready";
+};
+
+export type PassiveInstagramCollector = {
+  getProgress: () => CommentLoadProgress;
+  finish: () => CapturedPost;
+  cancel: () => void;
 };
 
 export function parseCompactNumber(value: string): number | undefined {
@@ -252,79 +254,6 @@ function readPostCounts(document: Document): {
   };
 }
 
-export function isLoadMoreCommentsLabel(value: string): boolean {
-  return /(?:load|view)\s+(?:all\s+)?(?:more\s+|previous\s+)?(?:\d[\d,.]*\s+)?comments?/i.test(
-    value,
-  );
-}
-
-function findLoadMoreCommentsControl(
-  document: Document,
-): HTMLElement | undefined {
-  const scope = getActiveCommentScope(document);
-  const controls = scope.querySelectorAll<HTMLElement>(
-    'button, [role="button"]',
-  );
-
-  return [...controls].find((control) => {
-    const label = [
-      control.getAttribute("aria-label"),
-      control.getAttribute("title"),
-      control.textContent,
-      control.querySelector("svg")?.getAttribute("aria-label"),
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-    return isVisibleElement(control) && isLoadMoreCommentsLabel(label);
-  });
-}
-
-function findScrollableCommentsContainer(
-  document: Document,
-): HTMLElement | undefined {
-  const scope = getActiveCommentScope(document);
-  const candidates = [
-    ...(scope instanceof HTMLElement ? [scope] : []),
-    ...scope.querySelectorAll<HTMLElement>("div"),
-  ].filter((element) => {
-    if (
-      element.clientHeight < 100 ||
-      element.scrollHeight <= element.clientHeight + 40 ||
-      element.getClientRects().length === 0
-    ) {
-      return false;
-    }
-
-    const overflowY = document.defaultView?.getComputedStyle(element).overflowY;
-    const profileLinks = [...element.querySelectorAll<HTMLAnchorElement>('a[href]')]
-      .filter((link) => readHandleFromHref(link.getAttribute("href"))).length;
-    const timestamps = element.querySelectorAll("time").length;
-    const containsCommentStructure = profileLinks >= 2 || timestamps >= 2;
-    return (
-      containsCommentStructure &&
-      ["auto", "scroll", "hidden"].includes(overflowY ?? "")
-    );
-  });
-
-  return candidates.sort((left, right) => {
-    const leftDialog = left.closest('div[role="dialog"]') ? 1 : 0;
-    const rightDialog = right.closest('div[role="dialog"]') ? 1 : 0;
-    if (leftDialog !== rightDialog) return rightDialog - leftDialog;
-    return left.clientHeight - right.clientHeight;
-  })[0];
-}
-
-export function getNextCommentScrollTop(
-  scrollTop: number,
-  clientHeight: number,
-  scrollHeight: number,
-): number {
-  const maximum = Math.max(0, scrollHeight - clientHeight);
-  const step = Math.max(240, Math.floor(clientHeight * 0.75));
-  return Math.min(maximum, scrollTop + step);
-}
-
 export function getCommentSampleTarget(
   requestedLimit: number,
   availableCommentCount?: number,
@@ -346,10 +275,7 @@ function addCommentsToSample(
   return sample.size - sizeBefore;
 }
 
-const wait = (milliseconds: number) =>
-  new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
-
-export async function loadAndCaptureInstagramPost(
+export function createPassiveInstagramCollector(
   document: Document,
   pageLocation: Pick<Location, "href" | "pathname">,
   expectedPostUrl?: string,
@@ -357,7 +283,7 @@ export async function loadAndCaptureInstagramPost(
     maxComments?: number;
     onProgress?: (progress: CommentLoadProgress) => void;
   } = {},
-): Promise<CapturedPost> {
+): PassiveInstagramCollector {
   const requestedLimit = options.maxComments ?? DEFAULT_COMMENT_LIMIT;
   const documentPostUrl = readDocumentPostUrl(document);
   const captureUrl = expectedPostUrl ?? documentPostUrl ?? pageLocation.href;
@@ -382,117 +308,82 @@ export async function loadAndCaptureInstagramPost(
     collectedComments,
     readVisibleComments(document, id, readPostOwner(document)),
   );
-  let unchangedAttempts = 0;
-  let attemptsPerformed = 0;
-  options.onProgress?.({
+  let scheduled = false;
+  let cancelled = false;
+
+  const getProgress = (): CommentLoadProgress => ({
     postId: id,
-    collected: collectedComments.size,
+    collected: Math.min(collectedComments.size, target),
     target,
-    attempt: 0,
-    maxAttempts: MAX_LOAD_ATTEMPTS,
-    status: "loading",
+    status: collectedComments.size >= target ? "ready" : "collecting",
   });
 
-  for (let attempt = 0; attempt < MAX_LOAD_ATTEMPTS; attempt += 1) {
-    if (collectedComments.size >= target) break;
-
-    const control =
-      unchangedAttempts < 2
-        ? findLoadMoreCommentsControl(document)
-        : undefined;
-    const scrollContainer = control
-      ? undefined
-      : findScrollableCommentsContainer(document);
-
-    if (control) {
-      control.scrollIntoView({ block: "center", behavior: "auto" });
-      control.click();
-    } else if (scrollContainer) {
-      const previousTop = scrollContainer.scrollTop;
-      scrollContainer.scrollTop = getNextCommentScrollTop(
-        previousTop,
-        scrollContainer.clientHeight,
-        scrollContainer.scrollHeight,
-      );
-      scrollContainer.dispatchEvent(new Event("scroll", { bubbles: true }));
-      if (scrollContainer.scrollTop === previousTop && unchangedAttempts >= 4) {
-        break;
-      }
-    } else {
-      break;
-    }
-
-    attemptsPerformed = attempt + 1;
-    await wait(LOAD_DELAY_MS);
-
-    const added = addCommentsToSample(
+  const collectVisibleWindow = () => {
+    if (cancelled) return;
+    addCommentsToSample(
       collectedComments,
       readVisibleComments(document, id, readPostOwner(document)),
     );
-    unchangedAttempts = added === 0 ? unchangedAttempts + 1 : 0;
-    options.onProgress?.({
-      postId: id,
-      collected: Math.min(collectedComments.size, target),
-      target,
-      attempt: attemptsPerformed,
-      maxAttempts: MAX_LOAD_ATTEMPTS,
-      status: collectedComments.size >= target ? "complete" : "loading",
-    });
-    if (unchangedAttempts >= 5) break;
-  }
+    const progress = getProgress();
+    options.onProgress?.(progress);
+    if (progress.status === "ready") observer.disconnect();
+  };
 
-  const comments = [...collectedComments.values()].slice(0, target);
-  if (comments.length === 0) {
-    options.onProgress?.({
-      postId: id,
-      collected: 0,
-      target,
-      attempt: attemptsPerformed,
-      maxAttempts: MAX_LOAD_ATTEMPTS,
-      status: "stalled",
-    });
-    const scopedProfileLinks = [
-      ...document.querySelectorAll<HTMLAnchorElement>(
-        'main a[href], div[role="dialog"] a[href]',
-      ),
-    ].filter((link) => readHandleFromHref(link.getAttribute("href"))).length;
-    const timestamps = document.querySelectorAll(
-      'main time, div[role="dialog"] time',
-    ).length;
-
-    throw new Error(
-      `No visible comments found. Expand comments and try again. Diagnostic: ${scopedProfileLinks} profile links, ${timestamps} timestamps.`,
-    );
-  }
-
-  if (comments.length < target) {
-    options.onProgress?.({
-      postId: id,
-      collected: comments.length,
-      target,
-      attempt: attemptsPerformed,
-      maxAttempts: MAX_LOAD_ATTEMPTS,
-      status: "stalled",
-    });
-    throw new Error(
-      `Comment sample target not reached: collected ${comments.length} of ${target} required comments. Retry after opening the full comment list, or skip this post.`,
-    );
-  }
-
-  options.onProgress?.({
-    postId: id,
-    collected: comments.length,
-    target,
-    attempt: attemptsPerformed,
-    maxAttempts: MAX_LOAD_ATTEMPTS,
-    status: "complete",
+  const MutationObserverConstructor =
+    document.defaultView?.MutationObserver ?? MutationObserver;
+  const observer = new MutationObserverConstructor(() => {
+    if (scheduled || cancelled) return;
+    scheduled = true;
+    document.defaultView?.setTimeout(() => {
+      scheduled = false;
+      collectVisibleWindow();
+    }, 100);
   });
+  observer.observe(document.body, { childList: true, subtree: true });
+  collectVisibleWindow();
+
+  const finish = (): CapturedPost => {
+    collectVisibleWindow();
+    const comments = [...collectedComments.values()].slice(0, target);
+
+    if (comments.length === 0) {
+      const scopedProfileLinks = [
+        ...document.querySelectorAll<HTMLAnchorElement>(
+          'main a[href], div[role="dialog"] a[href]',
+        ),
+      ].filter((link) => readHandleFromHref(link.getAttribute("href"))).length;
+      const timestamps = document.querySelectorAll(
+        'main time, div[role="dialog"] time',
+      ).length;
+
+      throw new Error(
+        `No visible comments found. Open the full comment list and scroll it manually. Diagnostic: ${scopedProfileLinks} profile links, ${timestamps} timestamps.`,
+      );
+    }
+
+    if (comments.length < target) {
+      throw new Error(
+        `Keep scrolling: collected ${comments.length} of ${target} required comments. The extension is observing passively and will not scroll Instagram for you.`,
+      );
+    }
+
+    observer.disconnect();
+    cancelled = true;
+    return {
+      id,
+      url: captureUrl,
+      ...counts,
+      comments,
+    };
+  };
 
   return {
-    id,
-    url: captureUrl,
-    ...counts,
-    comments,
+    getProgress,
+    finish,
+    cancel: () => {
+      cancelled = true;
+      observer.disconnect();
+    },
   };
 }
 

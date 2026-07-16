@@ -2,7 +2,9 @@ import type { CapturedPost, DiscoveredProfile } from "./analysis/types";
 
 export const MESSAGE_TYPES = {
   discoverProfile: "CREATOR_TRUST_LENS_DISCOVER_PROFILE",
-  capturePost: "CREATOR_TRUST_LENS_CAPTURE_POST",
+  startCollection: "CREATOR_TRUST_LENS_START_COLLECTION",
+  finishCollection: "CREATOR_TRUST_LENS_FINISH_COLLECTION",
+  cancelCollection: "CREATOR_TRUST_LENS_CANCEL_COLLECTION",
   captureProgress: "CREATOR_TRUST_LENS_CAPTURE_PROGRESS",
 } as const;
 
@@ -11,21 +13,28 @@ export type CaptureProgress = {
   postId: string;
   collected: number;
   target: number;
-  attempt: number;
-  maxAttempts: number;
-  status: "loading" | "complete" | "stalled";
+  status: "collecting" | "ready";
 };
 
 export type ExtensionRequest =
   | { type: typeof MESSAGE_TYPES.discoverProfile }
   | {
-      type: typeof MESSAGE_TYPES.capturePost;
+      type: typeof MESSAGE_TYPES.startCollection;
       postUrl?: string;
       maxComments?: number;
-    };
+    }
+  | { type: typeof MESSAGE_TYPES.finishCollection }
+  | { type: typeof MESSAGE_TYPES.cancelCollection };
 
 export type ExtensionResponse =
   | { ok: true; kind: "profile"; profile: DiscoveredProfile }
+  | {
+      ok: true;
+      kind: "collection";
+      collected: number;
+      target: number;
+    }
+  | { ok: true; kind: "cancelled" }
   | { ok: true; kind: "post"; post: CapturedPost }
   | { ok: false; error: string };
 
