@@ -49,6 +49,17 @@ The report combines repeated and low-information comments, recurring accounts,
 audience diversity, and engagement variation. These remain observable signals,
 not conclusions about how engagement was obtained.
 
+## Report exports
+
+Completed analyses can be exported locally in two formats:
+
+- **PDF:** a branded, shareable Creator Trust Lens report with the trust score,
+  confidence, sample size, evidence cards, examples, and context disclaimer.
+- **XLS:** an Excel-compatible workbook with separate Summary and Evidence
+  worksheets for filtering, review, or importing into an agency workflow.
+
+Neither export sends creator or comment data to a server.
+
 ## Demo workflow
 
 Click **View sample report** in the side panel to present a clearly labelled,

@@ -6,6 +6,10 @@ import type {
   ScanSession,
 } from "../../lib/analysis/types";
 import { createDemoProfileSample } from "../../lib/demo/sample";
+import {
+  exportAnalysisPdf,
+  exportAnalysisXls,
+} from "../../lib/export/report";
 import type {
   CaptureProgress,
   ExtensionRequest,
@@ -67,6 +71,7 @@ export function App() {
   const [working, setWorking] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [captureProgress, setCaptureProgress] = useState<CaptureProgress>();
+  const [exporting, setExporting] = useState<"pdf" | "xls">();
 
   useEffect(() => {
     void chrome.storage.local.get(ACTIVE_SESSION_KEY).then((stored) => {
@@ -305,6 +310,28 @@ export function App() {
     await saveSession(undefined);
   }
 
+  async function exportReport(format: "pdf" | "xls") {
+    if (!result) return;
+    setExporting(format);
+    setError(undefined);
+
+    try {
+      if (format === "pdf") {
+        await exportAnalysisPdf(result);
+      } else {
+        exportAnalysisXls(result);
+      }
+    } catch (exportError) {
+      setError(
+        exportError instanceof Error
+          ? exportError.message
+          : `Unable to create the ${format.toUpperCase()} report.`,
+      );
+    } finally {
+      setExporting(undefined);
+    }
+  }
+
   const score = result?.trustScore;
   const activeModeConfig = session
     ? getScanModeConfig(session.mode)
@@ -510,6 +537,31 @@ export function App() {
                 )}
               </article>
             ))}
+          </section>
+
+          <section className="export-card">
+            <div>
+              <p className="eyebrow">KEEP OR SHARE THE EVIDENCE</p>
+              <h2>Export this analysis</h2>
+              <p>Reports are generated locally in your browser.</p>
+            </div>
+            <div className="export-actions">
+              <button
+                className="export-pdf"
+                onClick={() => void exportReport("pdf")}
+                disabled={Boolean(exporting)}
+              >
+                {exporting === "pdf" ? "CREATING PDF…" : "EXPORT PDF"}
+              </button>
+              <button
+                className="export-xls"
+                onClick={() => void exportReport("xls")}
+                disabled={Boolean(exporting)}
+              >
+                {exporting === "xls" ? "CREATING XLS…" : "EXPORT XLS"}
+              </button>
+            </div>
+            {error && <p className="error">{error}</p>}
           </section>
 
           <button
