@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1280" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17102B"/><stop offset=".5" stop-color="#0A0913"/><stop offset="1" stop-color="#120916"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="790" y1="218" x2="992" y2="444" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8F67FF"/><stop offset=".52" stop-color="#E43EA5"/><stop offset="1" stop-color="#FF3C67"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="70"/></filter>
+  </defs>
+  <rect width="1280" height="800" fill="url(#page)"/>
+  <circle cx="1110" cy="104" r="190" fill="#7B48FF" fill-opacity=".17" filter="url(#blur)"/>
+  <circle cx="190" cy="695" r="190" fill="#FF376F" fill-opacity=".12" filter="url(#blur)"/>
+  <g font-family="Arial, sans-serif">
+    <text x="92" y="122" fill="#AA94FF" font-size="13" font-weight="700" letter-spacing="2.8">CREATOR DUE DILIGENCE</text>
+    <text x="92" y="184" fill="white" font-size="45" font-weight="700">Review engagement</text>
+    <text x="92" y="238" fill="white" font-size="45" font-weight="700">signals before a campaign.</text>
+    <text x="92" y="282" fill="#A7A1B5" font-size="18">Transparent evidence, sample confidence, and local analysis.</text>
+
+    <rect x="92" y="346" width="460" height="92" rx="18" fill="#181526" stroke="#FFFFFF" stroke-opacity=".1"/>
+    <circle cx="141" cy="392" r="23" fill="#32245D"/>
+    <path d="M128 392c8-9 18-9 26 0-8 9-18 9-26 0Z" fill="white"/><circle cx="141" cy="392" r="5" fill="#8F67FF"/>
+    <text x="180" y="384" fill="white" font-size="16" font-weight="700">Observable signals, not accusations</text>
+    <text x="180" y="410" fill="#8F899C" font-size="13">Every score includes evidence and sample context.</text>
+
+    <rect x="690" y="68" width="492" height="664" rx="28" fill="#0B0A13" stroke="#FFFFFF" stroke-opacity=".13"/>
+    <rect x="714" y="92" width="444" height="54" rx="14" fill="#151322"/>
+    <circle cx="744" cy="119" r="16" fill="#251A47"/>
+    <circle cx="744" cy="117" r="8" fill="none" stroke="#F0449B" stroke-width="3"/><path d="M750 123l5 5" stroke="#FF3F6D" stroke-width="3" stroke-linecap="round"/>
+    <text x="773" y="115" fill="#A993FF" font-size="8" font-weight="700" letter-spacing="1.5">ENGAGEMENT X-RAY</text>
+    <text x="773" y="133" fill="white" font-size="15" font-weight="700">Creator Trust Lens</text>
+
+    <rect x="714" y="162" width="444" height="267" rx="20" fill="#13111F" stroke="#FFFFFF" stroke-opacity=".1"/>
+    <text x="936" y="195" fill="#BDB7CC" font-size="13" text-anchor="middle">@samplecreator</text>
+    <circle cx="936" cy="286" r="65" fill="none" stroke="#352040" stroke-width="12"/>
+    <circle cx="936" cy="286" r="65" fill="none" stroke="url(#accent)" stroke-width="12" stroke-dasharray="330 79" transform="rotate(-90 936 286)"/>
+    <text x="936" y="294" fill="white" font-size="46" font-weight="700" text-anchor="middle">78</text>
+    <text x="936" y="320" fill="#FF648B" font-size="9" font-weight="700" letter-spacing="1.5" text-anchor="middle">TRUST SCORE</text>
+    <text x="936" y="359" fill="white" font-size="14" font-weight="700" text-anchor="middle">High confidence</text>
+    <text x="936" y="383" fill="#A59EAF" font-size="11" text-anchor="middle">8 posts · 847 comments scanned</text>
+    <text x="936" y="405" fill="#777181" font-size="9" text-anchor="middle">71% sample target coverage</text>
+
+    <rect x="714" y="447" width="213" height="119" rx="16" fill="#13111F" stroke="#FFFFFF" stroke-opacity=".1"/>
+    <text x="734" y="484" fill="#FF5483" font-size="27" font-weight="700">8%</text>
+    <text x="734" y="508" fill="white" font-size="12" font-weight="700">Repeated comments</text>
+    <text x="734" y="531" fill="#837D8D" font-size="9">Low concentration in the sample</text>
+
+    <rect x="945" y="447" width="213" height="119" rx="16" fill="#13111F" stroke="#FFFFFF" stroke-opacity=".1"/>
+    <text x="965" y="484" fill="#FF5483" font-size="27" font-weight="700">83%</text>
+    <text x="965" y="508" fill="white" font-size="12" font-weight="700">Audience diversity</text>
+    <text x="965" y="531" fill="#837D8D" font-size="9">Most commenters appear once</text>
+
+    <rect x="714" y="584" width="444" height="120" rx="17" fill="#151221" stroke="#A993FF" stroke-opacity=".22"/>
+    <text x="736" y="617" fill="#AA94FF" font-size="9" font-weight="700" letter-spacing="1.5">KEEP OR SHARE THE EVIDENCE</text>
+    <text x="736" y="645" fill="white" font-size="18" font-weight="700">Export this analysis</text>
+    <rect x="736" y="663" width="188" height="27" rx="8" fill="#7A4AFF"/><text x="830" y="681" fill="white" font-size="9" font-weight="700" text-anchor="middle">EXPORT PDF</text>
+    <rect x="943" y="663" width="188" height="27" rx="8" fill="#17382D" stroke="#55C996" stroke-opacity=".4"/><text x="1037" y="681" fill="#8DE8BE" font-size="9" font-weight="700" text-anchor="middle">EXPORT XLS</text>
+
+    <text x="92" y="696" fill="#726C7E" font-size="13">Runs locally in Chrome. No Creator Trust Lens account required.</text>
+  </g>
+</svg>

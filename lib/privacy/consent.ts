@@ -1,0 +1,28 @@
+export const CONSENT_STORAGE_KEY = "creatorTrustLens:consent:v1";
+
+export const PRIVACY_POLICY_URL =
+  "https://github.com/mateomustapic88/creator-trust-lens/blob/main/PRIVACY.md";
+
+export interface ConsentRecord {
+  accepted: true;
+  version: 1;
+  acceptedAt: string;
+}
+
+export function createConsentRecord(now = new Date()): ConsentRecord {
+  return {
+    accepted: true,
+    version: 1,
+    acceptedAt: now.toISOString(),
+  };
+}
+
+export function hasValidConsent(value: unknown): value is ConsentRecord {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<ConsentRecord>;
+  return (
+    record.accepted === true &&
+    record.version === 1 &&
+    typeof record.acceptedAt === "string"
+  );
+}

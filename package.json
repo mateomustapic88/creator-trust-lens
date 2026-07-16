@@ -1,6 +1,6 @@
 {
   "name": "creator-trust-lens",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Transparent Instagram engagement trust analysis in Chrome.",
@@ -11,7 +11,8 @@
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build",
+    "release:check": "npm run check && npm audit --omit=dev && npm run zip"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

@@ -79,6 +79,13 @@ Click **View sample report** in the side panel to present a clearly labelled,
 prebuilt report without visiting Instagram. The sample runs through the same
 local analysis engine as a real guided scan and is never saved as a real scan.
 
+## Consent and local data
+
+The first-run disclosure must be accepted before the extension reads the active
+Instagram tab. The side panel links to the privacy notice and provides a
+**Delete local data** control that clears consent, active sessions, completed
+results, and bounded history from Chrome local storage.
+
 ## Development
 
 ```bash
@@ -93,6 +100,13 @@ WXT opens a development browser when possible. Alternatively, run `npm run build
 ```bash
 npm run check
 ```
+
+For a release candidate, run `npm run release:check`. This also audits production
+dependencies and creates the Chrome Web Store upload ZIP in `.output`.
+
+Chrome Web Store listing copy, privacy-form guidance, assets, and the manual
+submission checklist are in [`docs/chrome-web-store-listing.md`](./docs/chrome-web-store-listing.md)
+and [`docs/chrome-web-store-submission-checklist.md`](./docs/chrome-web-store-submission-checklist.md).
 
 ## Product language
 

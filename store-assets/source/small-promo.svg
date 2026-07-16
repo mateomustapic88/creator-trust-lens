@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <defs>
+    <linearGradient id="bg" x1="22" y1="12" x2="416" y2="270" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#231249"/>
+      <stop offset=".55" stop-color="#0E0C1C"/>
+      <stop offset="1" stop-color="#080810"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="83" y1="76" x2="183" y2="181" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B72FF"/>
+      <stop offset=".5" stop-color="#E93FA6"/>
+      <stop offset="1" stop-color="#FF3D66"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="30"/></filter>
+  </defs>
+  <rect width="440" height="280" rx="18" fill="url(#bg)"/>
+  <circle cx="74" cy="58" r="95" fill="#7945FF" fill-opacity=".2" filter="url(#blur)"/>
+  <circle cx="382" cy="244" r="90" fill="#FF386F" fill-opacity=".16" filter="url(#blur)"/>
+  <circle cx="111" cy="126" r="47" fill="none" stroke="url(#accent)" stroke-width="15"/>
+  <path d="M145 160l25 25" stroke="#FF4A78" stroke-width="16" stroke-linecap="round"/>
+  <path d="M86 125c15-18 35-18 50 0-15 18-35 18-50 0Z" fill="#FAF8FF"/>
+  <circle cx="111" cy="125" r="10" fill="#7B4DFF"/>
+  <text x="204" y="108" fill="#AC98FF" font-family="Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="2">ENGAGEMENT X-RAY</text>
+  <text x="204" y="141" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="27" font-weight="700">Creator Trust</text>
+  <text x="204" y="171" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="27" font-weight="700">Lens</text>
+  <text x="204" y="200" fill="#9D98AD" font-family="Arial, sans-serif" font-size="12">Evidence-led creator screening</text>
+</svg>

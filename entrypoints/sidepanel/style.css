@@ -42,10 +42,10 @@ button:disabled { cursor: wait; opacity: 0.68; }
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 13px;
-  color: #ff3d77;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 26px;
+  overflow: hidden;
+  background: transparent;
 }
+.mask img { width: 44px; height: 44px; }
 
 .eyebrow { margin: 0; color: #a993ff; font-size: 10px; font-weight: 800; letter-spacing: 0.16em; }
 
@@ -56,6 +56,7 @@ button:disabled { cursor: wait; opacity: 0.68; }
 }
 
 .empty-card { border-radius: 20px; padding: 24px; }
+.status-card { color: #aaa6b8; }
 .empty-card h2 { margin: 8px 0 10px; font-size: 28px; line-height: 1.05; letter-spacing: -0.05em; }
 .empty-card > p:not(.eyebrow, .error) { color: #aaa6b8; line-height: 1.55; }
 .empty-card button { margin-top: 14px; }
@@ -80,6 +81,9 @@ button:disabled { cursor: wait; opacity: 0.68; }
 .mode-option strong { font-size: 11px; }
 .mode-option span { margin-top: 4px; color: #858092; font-size: 8px; line-height: 1.35; }
 .error { color: #ff7896; font-size: 13px; }
+.success { color: #9aefc7; font-size: 12px; text-align: center; }
+.disclosure-list { margin: 17px 0 5px; padding-left: 19px; color: #c8c2d9; font-size: 12px; line-height: 1.55; }
+.disclosure-list li + li { margin-top: 7px; }
 
 .session-card { border-radius: 20px; padding: 20px; }
 .session-heading { display: flex; align-items: center; justify-content: space-between; }
@@ -164,4 +168,13 @@ button:disabled { cursor: wait; opacity: 0.68; }
 .export-card .error { margin-bottom: 0; }
 
 .secondary { background: rgba(255, 255, 255, 0.07); box-shadow: none; }
+.privacy-controls { margin-top: 14px; }
+.privacy-links { display: flex; align-items: center; justify-content: center; gap: 8px; color: #5f5a6c; }
+.footer-button { width: auto; padding: 4px; color: #858092; background: transparent; box-shadow: none; font-size: 10px; font-weight: 650; }
+.delete-confirmation { padding: 15px; border: 1px solid rgba(255, 120, 150, 0.2); border-radius: 14px; background: rgba(255, 55, 111, 0.06); }
+.delete-confirmation strong { font-size: 12px; }
+.delete-confirmation p { margin: 5px 0 12px; color: #858092; font-size: 10px; line-height: 1.45; }
+.delete-confirmation > div { display: grid; grid-template-columns: 1fr 0.7fr; gap: 8px; }
+.delete-confirmation button { margin: 0; padding: 10px 8px; font-size: 9px; }
+.danger-button { background: linear-gradient(100deg, #c82a64, #ff315f); }
 footer { margin-top: 18px; color: #716c80; font-size: 11px; text-align: center; }

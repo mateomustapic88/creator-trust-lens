@@ -23,6 +23,12 @@ import type {
 } from "../../lib/messages";
 import { MESSAGE_TYPES } from "../../lib/messages";
 import {
+  CONSENT_STORAGE_KEY,
+  PRIVACY_POLICY_URL,
+  createConsentRecord,
+  hasValidConsent,
+} from "../../lib/privacy/consent";
+import {
   ACTIVE_SESSION_KEY,
   CURRENT_COLLECTOR_VERSION,
   addCapturedPost,
@@ -67,6 +73,8 @@ async function saveSession(session?: ScanSession): Promise<void> {
 }
 
 export function App() {
+  const [consentLoaded, setConsentLoaded] = useState(false);
+  const [consented, setConsented] = useState(false);
   const [session, setSession] = useState<ScanSession>();
   const [result, setResult] = useState<AnalysisResult>();
   const [showingDemo, setShowingDemo] = useState(false);
@@ -77,8 +85,19 @@ export function App() {
   const [collecting, setCollecting] = useState(false);
   const [captureProgress, setCaptureProgress] = useState<CaptureProgress>();
   const [exporting, setExporting] = useState<"pdf" | "xls">();
+  const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+  const [privacyNotice, setPrivacyNotice] = useState<string>();
 
   useEffect(() => {
+    void chrome.storage.local.get(CONSENT_STORAGE_KEY).then((stored) => {
+      setConsented(hasValidConsent(stored[CONSENT_STORAGE_KEY]));
+      setConsentLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!consented) return;
+
     void chrome.storage.local.get(ACTIVE_SESSION_KEY).then((stored) => {
       const storedSession = stored[ACTIVE_SESSION_KEY] as ScanSession | undefined;
       if (
@@ -115,7 +134,38 @@ export function App() {
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.runtime.onMessage.removeListener(onRuntimeMessage);
     };
-  }, []);
+  }, [consented]);
+
+  async function acceptDisclosure() {
+    await chrome.storage.local.set({
+      [CONSENT_STORAGE_KEY]: createConsentRecord(),
+    });
+    setConsented(true);
+    setPrivacyNotice(undefined);
+  }
+
+  async function openPrivacyPolicy() {
+    await chrome.tabs.create({ url: PRIVACY_POLICY_URL });
+  }
+
+  async function deleteLocalData() {
+    if (collecting) {
+      await sendToActiveTab({ type: MESSAGE_TYPES.cancelCollection }).catch(
+        () => undefined,
+      );
+    }
+    await chrome.storage.local.clear();
+    setSession(undefined);
+    setResult(undefined);
+    setShowingDemo(false);
+    setCollecting(false);
+    setCaptureProgress(undefined);
+    setActiveUrl(undefined);
+    setError(undefined);
+    setConfirmingDeletion(false);
+    setPrivacyNotice("Local extension data deleted.");
+    setConsented(false);
+  }
 
   const nextPostUrl = useMemo(
     () => (session ? getNextPostUrl(session) : undefined),
@@ -357,14 +407,50 @@ export function App() {
   return (
     <main className="shell">
       <header className="brand">
-        <div className="mask" aria-hidden="true">◒</div>
+        <div className="mask" aria-hidden="true">
+          <img src="/icon/48.png" alt="" />
+        </div>
         <div>
           <p className="eyebrow">ENGAGEMENT X-RAY</p>
           <h1>Creator Trust Lens</h1>
         </div>
       </header>
 
-      {!session && !result && (
+      {!consentLoaded && (
+        <section className="empty-card status-card" aria-live="polite">
+          <p>Loading privacy choices…</p>
+        </section>
+      )}
+
+      {consentLoaded && !consented && (
+        <section className="empty-card disclosure-card">
+          <p className="eyebrow">YOUR DATA STAYS LOCAL</p>
+          <h2>Review before continuing.</h2>
+          <p>
+            After you start a scan, Creator Trust Lens reads publicly visible
+            Instagram profile, post, and comment content from the active tab.
+          </p>
+          <ul className="disclosure-list">
+            <li>Analysis runs locally in this browser.</li>
+            <li>Scan results and lightweight history are saved in Chrome local storage.</li>
+            <li>Nothing is sent to us or sold to third parties.</li>
+            <li>You can delete all locally stored extension data at any time.</li>
+          </ul>
+          <button onClick={() => void acceptDisclosure()} type="button">
+            I UNDERSTAND, CONTINUE
+          </button>
+          <button
+            className="demo-button"
+            onClick={() => void openPrivacyPolicy()}
+            type="button"
+          >
+            READ PRIVACY NOTICE
+          </button>
+          {privacyNotice && <p className="success">{privacyNotice}</p>}
+        </section>
+      )}
+
+      {consented && !session && !result && (
         <section className="empty-card">
           <p className="eyebrow">EVIDENCE, NOT ACCUSATIONS</p>
           <h2>Inspect visible engagement signals.</h2>
@@ -398,7 +484,7 @@ export function App() {
         </section>
       )}
 
-      {session && (
+      {consented && session && (
         <section className="session-card">
           <div className="session-heading">
             <div>
@@ -523,7 +609,7 @@ export function App() {
         </section>
       )}
 
-      {result && (
+      {consented && result && (
         <>
           <section className="score-card">
             {showingDemo && <p className="demo-badge">SAMPLE DATA</p>}
@@ -599,6 +685,35 @@ export function App() {
             START ANOTHER SCAN
           </button>
         </>
+      )}
+
+      {consented && (
+        <section className="privacy-controls">
+          {confirmingDeletion ? (
+            <div className="delete-confirmation">
+              <strong>Delete all local data?</strong>
+              <p>This removes saved scans, scan history, and your consent choice.</p>
+              <div>
+                <button className="danger-button" onClick={() => void deleteLocalData()}>
+                  DELETE EVERYTHING
+                </button>
+                <button className="text-button" onClick={() => setConfirmingDeletion(false)}>
+                  Keep my data
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="privacy-links">
+              <button className="footer-button" onClick={() => void openPrivacyPolicy()}>
+                Privacy
+              </button>
+              <span aria-hidden="true">·</span>
+              <button className="footer-button" onClick={() => setConfirmingDeletion(true)}>
+                Delete local data
+              </button>
+            </div>
+          )}
+        </section>
       )}
 
       <footer>Analysis shows observable signals, not proof.</footer>
