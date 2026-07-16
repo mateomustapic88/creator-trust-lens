@@ -19,6 +19,15 @@ const DEFAULT_COMMENT_LIMIT = 150;
 const MAX_LOAD_ATTEMPTS = 40;
 const LOAD_DELAY_MS = 700;
 
+export type CommentLoadProgress = {
+  postId: string;
+  collected: number;
+  target: number;
+  attempt: number;
+  maxAttempts: number;
+  status: "loading" | "complete" | "stalled";
+};
+
 export function parseCompactNumber(value: string): number | undefined {
   const cleaned = value.replace(/,/g, "").trim().toLocaleLowerCase();
   const match = cleaned.match(/([\d.]+)\s*([kmb])?/);
@@ -316,7 +325,10 @@ export async function loadAndCaptureInstagramPost(
   document: Document,
   pageLocation: Pick<Location, "href" | "pathname">,
   expectedPostUrl?: string,
-  options: { maxComments?: number } = {},
+  options: {
+    maxComments?: number;
+    onProgress?: (progress: CommentLoadProgress) => void;
+  } = {},
 ): Promise<CapturedPost> {
   const requestedLimit = options.maxComments ?? DEFAULT_COMMENT_LIMIT;
   const documentPostUrl = readDocumentPostUrl(document);
@@ -343,6 +355,15 @@ export async function loadAndCaptureInstagramPost(
     readVisibleComments(document, id, readPostOwner(document)),
   );
   let unchangedAttempts = 0;
+  let attemptsPerformed = 0;
+  options.onProgress?.({
+    postId: id,
+    collected: collectedComments.size,
+    target,
+    attempt: 0,
+    maxAttempts: MAX_LOAD_ATTEMPTS,
+    status: "loading",
+  });
 
   for (let attempt = 0; attempt < MAX_LOAD_ATTEMPTS; attempt += 1) {
     if (collectedComments.size >= target) break;
@@ -369,6 +390,7 @@ export async function loadAndCaptureInstagramPost(
       break;
     }
 
+    attemptsPerformed = attempt + 1;
     await wait(LOAD_DELAY_MS);
 
     const added = addCommentsToSample(
@@ -376,11 +398,27 @@ export async function loadAndCaptureInstagramPost(
       readVisibleComments(document, id, readPostOwner(document)),
     );
     unchangedAttempts = added === 0 ? unchangedAttempts + 1 : 0;
+    options.onProgress?.({
+      postId: id,
+      collected: Math.min(collectedComments.size, target),
+      target,
+      attempt: attemptsPerformed,
+      maxAttempts: MAX_LOAD_ATTEMPTS,
+      status: collectedComments.size >= target ? "complete" : "loading",
+    });
     if (unchangedAttempts >= 5) break;
   }
 
   const comments = [...collectedComments.values()].slice(0, target);
   if (comments.length === 0) {
+    options.onProgress?.({
+      postId: id,
+      collected: 0,
+      target,
+      attempt: attemptsPerformed,
+      maxAttempts: MAX_LOAD_ATTEMPTS,
+      status: "stalled",
+    });
     const scopedProfileLinks = [
       ...document.querySelectorAll<HTMLAnchorElement>(
         'main a[href], div[role="dialog"] a[href]',
@@ -396,10 +434,27 @@ export async function loadAndCaptureInstagramPost(
   }
 
   if (comments.length < target) {
+    options.onProgress?.({
+      postId: id,
+      collected: comments.length,
+      target,
+      attempt: attemptsPerformed,
+      maxAttempts: MAX_LOAD_ATTEMPTS,
+      status: "stalled",
+    });
     throw new Error(
       `Comment sample target not reached: collected ${comments.length} of ${target} required comments. Retry after opening the full comment list, or skip this post.`,
     );
   }
+
+  options.onProgress?.({
+    postId: id,
+    collected: comments.length,
+    target,
+    attempt: attemptsPerformed,
+    maxAttempts: MAX_LOAD_ATTEMPTS,
+    status: "complete",
+  });
 
   return {
     id,

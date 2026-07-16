@@ -35,6 +35,14 @@ export default defineContentScript({
         if (message?.type === MESSAGE_TYPES.capturePost) {
           void loadAndCaptureInstagramPost(document, location, message.postUrl, {
             maxComments: message.maxComments,
+            onProgress: (progress) => {
+              void chrome.runtime
+                .sendMessage({
+                  type: MESSAGE_TYPES.captureProgress,
+                  ...progress,
+                })
+                .catch(() => undefined);
+            },
           })
             .then((post) => {
               const response: ExtensionResponse = {

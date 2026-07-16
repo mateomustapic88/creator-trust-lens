@@ -6,7 +6,12 @@ import type {
   ScanSession,
 } from "../../lib/analysis/types";
 import { createDemoProfileSample } from "../../lib/demo/sample";
-import type { ExtensionRequest, ExtensionResponse } from "../../lib/messages";
+import type {
+  CaptureProgress,
+  ExtensionRequest,
+  ExtensionResponse,
+  ExtensionRuntimeMessage,
+} from "../../lib/messages";
 import { MESSAGE_TYPES } from "../../lib/messages";
 import {
   ACTIVE_SESSION_KEY,
@@ -59,6 +64,7 @@ export function App() {
   const [activeUrl, setActiveUrl] = useState<string>();
   const [error, setError] = useState<string>();
   const [working, setWorking] = useState(false);
+  const [captureProgress, setCaptureProgress] = useState<CaptureProgress>();
 
   useEffect(() => {
     void chrome.storage.local.get(ACTIVE_SESSION_KEY).then((stored) => {
@@ -74,10 +80,17 @@ export function App() {
     const onActivated = () => void syncActiveUrl();
     chrome.tabs.onUpdated.addListener(onUpdated);
     chrome.tabs.onActivated.addListener(onActivated);
+    const onRuntimeMessage = (message: ExtensionRuntimeMessage) => {
+      if (message?.type === MESSAGE_TYPES.captureProgress) {
+        setCaptureProgress(message);
+      }
+    };
+    chrome.runtime.onMessage.addListener(onRuntimeMessage);
 
     return () => {
       chrome.tabs.onUpdated.removeListener(onUpdated);
       chrome.tabs.onActivated.removeListener(onActivated);
+      chrome.runtime.onMessage.removeListener(onRuntimeMessage);
     };
   }, []);
 
@@ -101,6 +114,7 @@ export function App() {
   async function startScan() {
     setWorking(true);
     setError(undefined);
+    setCaptureProgress(undefined);
     setResult(undefined);
     setShowingDemo(false);
 
@@ -176,6 +190,7 @@ export function App() {
       const nextSession = addCapturedPost(session, response.post);
       setSession(nextSession);
       await saveSession(nextSession);
+      setCaptureProgress(undefined);
     } catch (captureError) {
       setError(
         captureError instanceof Error ? captureError.message : "Capture failed.",
@@ -311,8 +326,28 @@ export function App() {
                 limit of {activeModeConfig.commentLimit}, then capture the visible
                 results. This can take a few seconds.
               </p>
+              {working && captureProgress && (
+                <div className="collection-progress">
+                  <div>
+                    <span>Comments collected</span>
+                    <strong>{captureProgress.collected}/{captureProgress.target}</strong>
+                  </div>
+                  <div className="collection-track" aria-label="Comment collection progress">
+                    <span
+                      style={{
+                        width: `${Math.min(100, (captureProgress.collected / Math.max(1, captureProgress.target)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <small>Loading batch {captureProgress.attempt} of {captureProgress.maxAttempts}</small>
+                </div>
+              )}
               <button onClick={captureCurrentPost} disabled={working}>
-                {working ? "LOADING COMMENTS…" : "LOAD AND CAPTURE SAMPLE"}
+                {working && captureProgress
+                  ? `LOADING ${captureProgress.collected}/${captureProgress.target}…`
+                  : working
+                    ? "PREPARING COMMENTS…"
+                    : "LOAD AND CAPTURE SAMPLE"}
               </button>
               <button
                 className="text-button"

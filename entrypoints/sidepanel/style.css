@@ -90,6 +90,12 @@ button:disabled { cursor: wait; opacity: 0.68; }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7d4bff, #ff376f); transition: width 180ms ease; }
 .instruction { margin: 16px 0; padding: 16px; border: 1px solid rgba(169, 147, 255, 0.18); border-radius: 15px; background: rgba(126, 76, 255, 0.07); }
 .instruction p { margin: 7px 0 14px; color: #aaa6b8; font-size: 12px; line-height: 1.5; }
+.collection-progress { margin: 0 0 13px; padding: 11px; border-radius: 11px; background: rgba(0, 0, 0, 0.18); }
+.collection-progress > div:first-child { display: flex; align-items: center; justify-content: space-between; color: #aaa6b8; font-size: 10px; }
+.collection-progress strong { color: white; font-size: 12px; }
+.collection-track { height: 5px; margin: 8px 0 6px; overflow: hidden; border-radius: 10px; background: rgba(255, 255, 255, 0.08); }
+.collection-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7d4bff, #ff376f); transition: width 180ms ease; }
+.collection-progress small { color: #716c80; font-size: 9px; }
 .sample-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .sample-stats div { padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
 .sample-stats dt { color: #858092; font-size: 10px; }
