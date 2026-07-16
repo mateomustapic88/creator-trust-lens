@@ -69,6 +69,7 @@ State that data is used for core functionality, is not sold, is not used for adv
 
 - Icon: `public/icon/128.png`
 - Screenshot: `store-assets/generated/screenshot-report-1280x800.png`
-- Small promotional tile: `store-assets/generated/small-promo-440x280.png`
+- Small promotional tile: `store-assets/generated/small-promo-440x280.jpg`
+- Marquee promotional tile: `store-assets/generated/marquee-promo-1400x560.jpg`
 
 The screenshot uses sample data and accurately represents the extension report interface.
