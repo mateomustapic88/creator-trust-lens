@@ -187,6 +187,35 @@ export function App() {
 
   async function finishScan() {
     if (!session) return;
+    const config = getScanModeConfig(session.mode);
+    const incompletePost = session.capturedPosts.find((post) => {
+      const requiredComments = Math.min(
+        config.commentLimit,
+        post.commentCount ?? config.commentLimit,
+      );
+      return post.comments.length < requiredComments;
+    });
+
+    if (incompletePost) {
+      const requiredComments = Math.min(
+        config.commentLimit,
+        incompletePost.commentCount ?? config.commentLimit,
+      );
+      setError(
+        `A captured post has only ${incompletePost.comments.length} of ${requiredComments} required comments. Start a new scan to recapture it with the updated loader.`,
+      );
+      return;
+    }
+
+    const reviewedCount =
+      session.capturedPosts.length + (session.skippedPostUrls?.length ?? 0);
+    if (reviewedCount < session.postUrls.length) {
+      setError(
+        `Review or skip the remaining ${session.postUrls.length - reviewedCount} posts before finishing this ${config.label.toLowerCase()} scan.`,
+      );
+      return;
+    }
+
     const analysis = analyzeProfile(buildProfileSample(session));
     setResult(analysis);
     await chrome.storage.local.set({ [`scan:${analysis.handle}`]: analysis });

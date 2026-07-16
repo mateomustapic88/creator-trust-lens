@@ -17,8 +17,14 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 1. Open a public Instagram profile and start a guided scan.
 2. Creator Trust Lens discovers up to 12 currently visible post links.
 3. Open each post from the side panel and choose **Load and capture sample**.
-4. The extension loads comment batches with a fixed attempt limit and captures up to 150 visible comments. Nothing is collected until you click.
-5. Finish at any point to calculate a trust score, confidence level, and evidence cards from the combined sample.
+4. The extension accumulates unique comments across loaded and virtualized batches.
+   It requires the selected mode target for each post, unless Instagram reports
+   that the post has fewer comments, in which case it collects all available
+   comments. Nothing is collected until you click.
+5. Finish after every queued post is captured or explicitly skipped to calculate a trust score, confidence level, and evidence cards from the combined sample.
+
+The report cannot finish until every queued post is captured or explicitly
+skipped, and every captured post satisfies the selected mode's comment target.
 
 Reel URL variants are matched by media ID rather than their full URL. A post or
 reel that is unavailable, has comments disabled, or cannot be parsed can be

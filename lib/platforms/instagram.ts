@@ -16,8 +16,8 @@ const RESERVED_PATHS = new Set([
 ]);
 
 const DEFAULT_COMMENT_LIMIT = 150;
-const MAX_LOAD_ATTEMPTS = 12;
-const LOAD_DELAY_MS = 800;
+const MAX_LOAD_ATTEMPTS = 40;
+const LOAD_DELAY_MS = 700;
 
 export function parseCompactNumber(value: string): number | undefined {
   const cleaned = value.replace(/,/g, "").trim().toLocaleLowerCase();
@@ -261,6 +261,54 @@ function findLoadMoreCommentsControl(
   });
 }
 
+function findScrollableCommentsContainer(
+  document: Document,
+): HTMLElement | undefined {
+  const candidates = [
+    ...document.querySelectorAll<HTMLElement>(
+      'div[role="dialog"] div, main div',
+    ),
+  ].filter((element) => {
+    if (
+      element.clientHeight < 100 ||
+      element.scrollHeight <= element.clientHeight + 40 ||
+      element.getClientRects().length === 0
+    ) {
+      return false;
+    }
+
+    const overflowY = document.defaultView?.getComputedStyle(element).overflowY;
+    const containsCommentStructure = Boolean(
+      element.querySelector('a[href]') &&
+        (element.querySelector("time") || element.querySelector('span[dir="auto"]')),
+    );
+    return containsCommentStructure && ["auto", "scroll"].includes(overflowY ?? "");
+  });
+
+  return candidates.sort((left, right) => left.clientHeight - right.clientHeight)[0];
+}
+
+export function getCommentSampleTarget(
+  requestedLimit: number,
+  availableCommentCount?: number,
+): number {
+  const safeLimit = Math.min(300, Math.max(20, requestedLimit));
+  return availableCommentCount === undefined
+    ? safeLimit
+    : Math.min(safeLimit, Math.max(0, availableCommentCount));
+}
+
+function addCommentsToSample(
+  sample: Map<string, VisibleComment>,
+  comments: VisibleComment[],
+): number {
+  const sizeBefore = sample.size;
+  for (const comment of comments) {
+    sample.set(`${comment.author}\u0000${comment.text}`, comment);
+  }
+  return sample.size - sizeBefore;
+}
+
 const wait = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 
@@ -270,11 +318,9 @@ export async function loadAndCaptureInstagramPost(
   expectedPostUrl?: string,
   options: { maxComments?: number } = {},
 ): Promise<CapturedPost> {
-  const maxComments = Math.min(
-    300,
-    Math.max(20, options.maxComments ?? DEFAULT_COMMENT_LIMIT),
-  );
+  const requestedLimit = options.maxComments ?? DEFAULT_COMMENT_LIMIT;
   const documentPostUrl = readDocumentPostUrl(document);
+  const captureUrl = expectedPostUrl ?? documentPostUrl ?? pageLocation.href;
   const id = [
     expectedPostUrl,
     pageLocation.href,
@@ -289,31 +335,78 @@ export async function loadAndCaptureInstagramPost(
     throw new Error("Open an Instagram post or reel before capturing comments.");
   }
 
-  let previousCount = readVisibleComments(document, id, readPostOwner(document)).length;
+  const counts = readPostCounts(document);
+  const target = getCommentSampleTarget(requestedLimit, counts.commentCount);
+  const collectedComments = new Map<string, VisibleComment>();
+  addCommentsToSample(
+    collectedComments,
+    readVisibleComments(document, id, readPostOwner(document)),
+  );
   let unchangedAttempts = 0;
 
   for (let attempt = 0; attempt < MAX_LOAD_ATTEMPTS; attempt += 1) {
-    if (previousCount >= maxComments) break;
+    if (collectedComments.size >= target) break;
 
-    const control = findLoadMoreCommentsControl(document);
-    if (!control) break;
+    const control =
+      unchangedAttempts < 2
+        ? findLoadMoreCommentsControl(document)
+        : undefined;
+    const scrollContainer = control
+      ? undefined
+      : findScrollableCommentsContainer(document);
 
-    control.scrollIntoView({ block: "center", behavior: "auto" });
-    control.click();
+    if (control) {
+      control.scrollIntoView({ block: "center", behavior: "auto" });
+      control.click();
+    } else if (scrollContainer) {
+      const previousTop = scrollContainer.scrollTop;
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      scrollContainer.dispatchEvent(new Event("scroll", { bubbles: true }));
+      if (scrollContainer.scrollTop === previousTop && unchangedAttempts >= 4) {
+        break;
+      }
+    } else {
+      break;
+    }
+
     await wait(LOAD_DELAY_MS);
 
-    const nextCount = readVisibleComments(
-      document,
-      id,
-      readPostOwner(document),
-    ).length;
-    unchangedAttempts = nextCount <= previousCount ? unchangedAttempts + 1 : 0;
-    previousCount = Math.max(previousCount, nextCount);
-
-    if (unchangedAttempts >= 2) break;
+    const added = addCommentsToSample(
+      collectedComments,
+      readVisibleComments(document, id, readPostOwner(document)),
+    );
+    unchangedAttempts = added === 0 ? unchangedAttempts + 1 : 0;
+    if (unchangedAttempts >= 5) break;
   }
 
-  return captureInstagramPost(document, pageLocation, expectedPostUrl);
+  const comments = [...collectedComments.values()].slice(0, target);
+  if (comments.length === 0) {
+    const scopedProfileLinks = [
+      ...document.querySelectorAll<HTMLAnchorElement>(
+        'main a[href], div[role="dialog"] a[href]',
+      ),
+    ].filter((link) => readHandleFromHref(link.getAttribute("href"))).length;
+    const timestamps = document.querySelectorAll(
+      'main time, div[role="dialog"] time',
+    ).length;
+
+    throw new Error(
+      `No visible comments found. Expand comments and try again. Diagnostic: ${scopedProfileLinks} profile links, ${timestamps} timestamps.`,
+    );
+  }
+
+  if (comments.length < target) {
+    throw new Error(
+      `Comment sample target not reached: collected ${comments.length} of ${target} required comments. Retry after opening the full comment list, or skip this post.`,
+    );
+  }
+
+  return {
+    id,
+    url: captureUrl,
+    ...counts,
+    comments,
+  };
 }
 
 export function discoverInstagramProfile(

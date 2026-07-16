@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCommentSampleTarget,
   isLoadMoreCommentsLabel,
   parseInstagramPostId,
 } from "../lib/platforms/instagram";
@@ -17,6 +18,20 @@ describe("Instagram post URL parsing", () => {
   it("does not treat a profile as a post", () => {
     expect(parseInstagramPostId("https://www.instagram.com/example_creator/"))
       .toBeUndefined();
+  });
+});
+
+describe("comment sample targets", () => {
+  it("requires the selected mode limit when enough comments exist", () => {
+    expect(getCommentSampleTarget(150, 2_000)).toBe(150);
+  });
+
+  it("uses all available comments when a post has fewer than the mode limit", () => {
+    expect(getCommentSampleTarget(150, 66)).toBe(66);
+  });
+
+  it("requires the selected limit when Instagram does not expose a total", () => {
+    expect(getCommentSampleTarget(150)).toBe(150);
   });
 });
 
