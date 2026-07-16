@@ -47,7 +47,14 @@ export type ScanSession = {
 };
 
 export type EvidenceItem = {
-  id: "duplicates" | "generic" | "recurring" | "diversity" | "anomalies";
+  id:
+    | "duplicates"
+    | "generic"
+    | "recurring"
+    | "diversity"
+    | "anomalies"
+    | "engagement_rate"
+    | "comment_like_ratio";
   label: string;
   value: string;
   score: number;

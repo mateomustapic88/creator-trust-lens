@@ -75,4 +75,60 @@ describe("profile analysis", () => {
     expect(diversity?.value).toBe("6% unique");
     expect(diversity?.examples).not.toHaveLength(0);
   });
+
+  it("reports the typical engagement rate from visible post totals", () => {
+    const result = analyzeProfile(sample());
+    const engagement = result.evidence.find(
+      (item) => item.id === "engagement_rate",
+    );
+
+    expect(engagement?.value).toBe("5.5%");
+    expect(engagement?.score).toBe(0);
+  });
+
+  it("flags extremely low typical engagement conservatively", () => {
+    const posts = sample().posts.map((post) => ({
+      ...post,
+      likes: 5,
+      commentCount: 1,
+    }));
+    const result = analyzeProfile(sample({ posts }));
+    const engagement = result.evidence.find(
+      (item) => item.id === "engagement_rate",
+    );
+
+    expect(engagement?.score).toBeGreaterThan(40);
+  });
+
+  it("checks whether visible comments are disproportionate to likes", () => {
+    const posts = sample().posts.map((post) => ({
+      ...post,
+      likes: 100,
+      commentCount: 40,
+    }));
+    const result = analyzeProfile(sample({ posts }));
+    const balance = result.evidence.find(
+      (item) => item.id === "comment_like_ratio",
+    );
+
+    expect(balance?.value).toBe("40.0%");
+    expect(balance?.score).toBeGreaterThan(80);
+  });
+
+  it("does not let unavailable post metrics lower the suspicion score", () => {
+    const suspiciousComments = Array.from({ length: 90 }, (_, index) => ({
+      author: `bot-${index}`,
+      text: "Amazing content 🔥",
+      postId: `post-${index % 6}`,
+    }));
+    const withoutMetrics = sample({
+      comments: suspiciousComments,
+      followerCount: undefined,
+      posts: sample().posts.map(({ likes: _likes, commentCount: _comments, ...post }) => post),
+    });
+
+    const result = analyzeProfile(withoutMetrics);
+    expect(result.evidence.find((item) => item.id === "engagement_rate")?.value).toBe("N/A");
+    expect(result.suspicionScore).toBeGreaterThan(40);
+  });
 });

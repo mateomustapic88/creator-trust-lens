@@ -14,6 +14,19 @@ import {
 const clamp = (value: number, min = 0, max = 100) =>
   Math.min(max, Math.max(min, value));
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
+  }
+  return sorted[middle] ?? 0;
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(value < 0.01 ? 2 : 1)}%`;
+}
+
 function getConfidence(posts: number, comments: number): Confidence {
   if (posts < 3 || comments < 20) return "insufficient";
   if (posts >= 9 && comments >= 200) return "high";
@@ -145,40 +158,132 @@ function diversityEvidence(comments: VisibleComment[]): EvidenceItem {
 }
 
 function anomalyEvidence(sample: ProfileSample): EvidenceItem {
-  const rates = sample.posts
+  const postEngagement = sample.posts
     .map((post) => {
-      if (!post.likes || !sample.followerCount) return undefined;
-      return (post.likes + (post.commentCount ?? 0)) / sample.followerCount;
+      if (post.likes === undefined) return undefined;
+      return {
+        post,
+        engagement: post.likes + (post.commentCount ?? 0),
+      };
     })
-    .filter((rate): rate is number => rate !== undefined);
+    .filter((item): item is NonNullable<typeof item> => item !== undefined);
 
-  if (rates.length < 4) {
+  if (postEngagement.length < 4) {
     return {
       id: "anomalies",
       label: "Engagement anomalies",
       value: "N/A",
       score: 0,
-      explanation: "Not enough visible like and follower data to evaluate variation.",
+      explanation: "At least four posts with visible like totals are required.",
       examples: [],
     };
   }
 
-  const sorted = [...rates].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
-  const deviations = rates.map((rate) => Math.abs(rate - median)).sort((a, b) => a - b);
-  const mad = deviations[Math.floor(deviations.length / 2)] ?? 0;
-  const threshold = median + Math.max(mad * 4, median * 1.5);
-  const anomalies = rates.filter((rate) => rate > threshold);
+  const typical = median(postEngagement.map((item) => item.engagement));
+  const deviation = median(
+    postEngagement.map((item) => Math.abs(item.engagement - typical)),
+  );
+  const threshold = typical + Math.max(deviation * 4, typical * 1.5);
+  const anomalies = postEngagement.filter(
+    (item) => item.engagement > threshold,
+  );
 
   return {
     id: "anomalies",
     label: "Engagement spikes",
     value: `${anomalies.length}`,
-    score: clamp((anomalies.length / rates.length) * 160),
+    score: clamp((anomalies.length / postEngagement.length) * 160),
     explanation: "Visible post engagement far outside this profile's typical range.",
-    examples: anomalies.slice(0, 3).map((rate) => `${(rate * 100).toFixed(2)}% engagement`),
+    examples: anomalies
+      .slice(0, 3)
+      .map(({ post, engagement }) => `${post.id}: ${engagement.toLocaleString()} interactions`),
   };
 }
+
+function engagementRateEvidence(sample: ProfileSample): EvidenceItem {
+  const followerCount = sample.followerCount;
+  const rates = sample.posts
+    .map((post) =>
+      followerCount && post.likes !== undefined
+        ? (post.likes + (post.commentCount ?? 0)) / followerCount
+        : undefined,
+    )
+    .filter((rate): rate is number => rate !== undefined);
+
+  if (!followerCount || rates.length < 3) {
+    return {
+      id: "engagement_rate",
+      label: "Typical engagement",
+      value: "N/A",
+      score: 0,
+      explanation: "Follower count and visible engagement from at least three posts are required.",
+      examples: [],
+    };
+  }
+
+  const typicalRate = median(rates);
+  const conservativeFloor =
+    followerCount < 100_000 ? 0.003 : followerCount < 1_000_000 ? 0.0015 : 0.0008;
+  const shortfall = Math.max(0, conservativeFloor - typicalRate) / conservativeFloor;
+
+  return {
+    id: "engagement_rate",
+    label: "Typical engagement",
+    value: formatPercent(typicalRate),
+    score: clamp(shortfall * 60),
+    explanation: "Median visible interactions relative to followers. Very low rates merit context, but vary by creator size and content.",
+    examples: [
+      `${rates.length} posts with visible totals`,
+      `${followerCount.toLocaleString()} followers observed`,
+    ],
+  };
+}
+
+function commentLikeRatioEvidence(sample: ProfileSample): EvidenceItem {
+  const ratios = sample.posts
+    .map((post) =>
+      post.likes && post.commentCount !== undefined
+        ? { post, ratio: post.commentCount / post.likes }
+        : undefined,
+    )
+    .filter((item): item is NonNullable<typeof item> => item !== undefined);
+
+  if (ratios.length < 3) {
+    return {
+      id: "comment_like_ratio",
+      label: "Comment-to-like balance",
+      value: "N/A",
+      score: 0,
+      explanation: "At least three posts with visible like and comment totals are required.",
+      examples: [],
+    };
+  }
+
+  const typicalRatio = median(ratios.map((item) => item.ratio));
+  const score = clamp(Math.max(0, typicalRatio - 0.1) * 300);
+  const highest = [...ratios].sort((left, right) => right.ratio - left.ratio);
+
+  return {
+    id: "comment_like_ratio",
+    label: "Comment-to-like balance",
+    value: formatPercent(typicalRatio),
+    score,
+    explanation: "A disproportionately high visible comment total can merit review. Giveaways and discussion-led posts can naturally raise it.",
+    examples: highest
+      .slice(0, 3)
+      .map(({ post, ratio }) => `${post.id}: ${formatPercent(ratio)}`),
+  };
+}
+
+const EVIDENCE_WEIGHTS: Record<EvidenceItem["id"], number> = {
+  duplicates: 0.2,
+  generic: 0.1,
+  recurring: 0.18,
+  diversity: 0.15,
+  anomalies: 0.13,
+  engagement_rate: 0.12,
+  comment_like_ratio: 0.12,
+};
 
 export function analyzeProfile(sample: ProfileSample): AnalysisResult {
   const evidence = [
@@ -187,15 +292,23 @@ export function analyzeProfile(sample: ProfileSample): AnalysisResult {
     recurringEvidence(sample.comments, sample.posts.length),
     diversityEvidence(sample.comments),
     anomalyEvidence(sample),
+    engagementRateEvidence(sample),
+    commentLikeRatioEvidence(sample),
   ];
   const confidence = getConfidence(sample.posts.length, sample.comments.length);
 
+  const availableEvidence = evidence.filter((item) => item.value !== "N/A");
+  const availableWeight = availableEvidence.reduce(
+    (total, item) => total + EVIDENCE_WEIGHTS[item.id],
+    0,
+  );
   const suspicionScore = Math.round(
-    evidence[0]!.score * 0.25 +
-      evidence[1]!.score * 0.15 +
-      evidence[2]!.score * 0.25 +
-      evidence[3]!.score * 0.2 +
-      evidence[4]!.score * 0.15,
+    availableWeight === 0
+      ? 0
+      : availableEvidence.reduce(
+          (total, item) => total + item.score * EVIDENCE_WEIGHTS[item.id],
+          0,
+        ) / availableWeight,
   );
 
   return {
