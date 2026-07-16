@@ -13,7 +13,7 @@
 
 ## Dashboard
 
-- Create a new item and upload `.output/creator-trust-lens-0.3.0-chrome.zip`.
+- Create a new item and upload `.output/creator-trust-lens-0.3.1-chrome.zip`.
 - Copy the listing text and permission justifications from `docs/chrome-web-store-listing.md`.
 - Upload the 1280 by 800 screenshot and 440 by 280 promotional tile.
 - Select Productivity and English.

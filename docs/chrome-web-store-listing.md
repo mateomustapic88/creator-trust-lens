@@ -61,9 +61,9 @@ Declare the applicable categories for:
 
 State that data is used for core functionality, is not sold, is not used for advertising or credit decisions, and is not transmitted outside the user's device. Confirm the Limited Use certification only while the implementation continues to match the privacy notice.
 
-**Privacy policy URL:** https://github.com/mateomustapic88/creator-trust-lens/blob/main/PRIVACY.md
+**Privacy policy URL:** https://sites.google.com/view/creator-trust-lens-privacy
 
-**Support URL:** https://github.com/mateomustapic88/creator-trust-lens/issues
+Use the verified brand support email configured in the Chrome Web Store dashboard. Do not use the private GitHub repository as a public support URL.
 
 ## Assets
 

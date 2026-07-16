@@ -1,7 +1,7 @@
 export const CONSENT_STORAGE_KEY = "creatorTrustLens:consent:v1";
 
 export const PRIVACY_POLICY_URL =
-  "https://github.com/mateomustapic88/creator-trust-lens/blob/main/PRIVACY.md";
+  "https://sites.google.com/view/creator-trust-lens-privacy";
 
 export interface ConsentRecord {
   accepted: true;

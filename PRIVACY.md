@@ -55,4 +55,4 @@ Creator Trust Lens uses data obtained through Chrome extension capabilities only
 
 This notice will be updated before any analytics, payments, crash reporting, cloud sync, account system, or other external service is introduced. Material changes will be presented in the product when renewed consent is appropriate.
 
-Questions or privacy requests can be submitted through the [Creator Trust Lens issue tracker](https://github.com/mateomustapic88/creator-trust-lens/issues).
+Questions or privacy requests can be sent to the verified support email shown on the Creator Trust Lens Chrome Web Store listing.
