@@ -16,6 +16,7 @@ import {
   getNextPostUrl,
   isCapturedPost,
   isSessionPost,
+  skipPost,
 } from "../../lib/scanning/session";
 import {
   getScanModeConfig,
@@ -132,6 +133,24 @@ export function App() {
     const tab = await getActiveTab();
     if (!tab?.id) return;
     await chrome.tabs.update(tab.id, { url: nextPostUrl });
+    setActiveUrl(nextPostUrl);
+    setError(undefined);
+  }
+
+  async function skipCurrentPost() {
+    if (!session || !activeUrl) return;
+
+    const nextSession = skipPost(session, activeUrl);
+    const followingPostUrl = getNextPostUrl(nextSession);
+    setSession(nextSession);
+    setError(undefined);
+    await saveSession(nextSession);
+
+    const tab = await getActiveTab();
+    if (followingPostUrl && tab?.id) {
+      await chrome.tabs.update(tab.id, { url: followingPostUrl });
+      setActiveUrl(followingPostUrl);
+    }
   }
 
   async function captureCurrentPost() {
@@ -187,6 +206,8 @@ export function App() {
   const activeModeConfig = session
     ? getScanModeConfig(session.mode)
     : getScanModeConfig(scanMode);
+  const skippedPosts = session?.skippedPostUrls?.length ?? 0;
+  const reviewedPosts = (session?.capturedPosts.length ?? 0) + skippedPosts;
 
   return (
     <main className="shell">
@@ -241,14 +262,14 @@ export function App() {
               <span className="mode-badge">{activeModeConfig.label} scan</span>
             </div>
             <span className="progress-count">
-              {session.capturedPosts.length}/{session.postUrls.length}
+              {reviewedPosts}/{session.postUrls.length}
             </span>
           </div>
 
           <div className="progress-track" aria-label="Scan progress">
             <span
               style={{
-                width: `${(session.capturedPosts.length / session.postUrls.length) * 100}%`,
+                width: `${(reviewedPosts / session.postUrls.length) * 100}%`,
               }}
             />
           </div>
@@ -263,6 +284,13 @@ export function App() {
               </p>
               <button onClick={captureCurrentPost} disabled={working}>
                 {working ? "LOADING COMMENTS…" : "LOAD AND CAPTURE SAMPLE"}
+              </button>
+              <button
+                className="text-button"
+                onClick={skipCurrentPost}
+                disabled={working}
+              >
+                Skip this post
               </button>
             </div>
           ) : nextPostUrl ? (
@@ -292,6 +320,12 @@ export function App() {
                 )}
               </dd>
             </div>
+            {skippedPosts > 0 && (
+              <div>
+                <dt>Posts skipped</dt>
+                <dd>{skippedPosts}</dd>
+              </div>
+            )}
           </dl>
 
           <button

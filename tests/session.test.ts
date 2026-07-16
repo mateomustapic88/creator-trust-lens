@@ -7,6 +7,7 @@ import {
   getNextPostUrl,
   isCapturedPost,
   isSessionPost,
+  skipPost,
 } from "../lib/scanning/session";
 
 const profile: DiscoveredProfile = {
@@ -70,6 +71,43 @@ describe("guided scan session", () => {
     const twice = addCapturedPost(once, { ...capture, likes: 350 });
     expect(twice.capturedPosts).toHaveLength(1);
     expect(twice.capturedPosts[0]?.likes).toBe(350);
+  });
+
+  it("treats reel and reels URLs as the same queue item", () => {
+    const reelProfile = {
+      ...profile,
+      postUrls: [
+        "https://www.instagram.com/reel/REEL123/",
+        "https://www.instagram.com/p/next/",
+      ],
+    };
+    const reelCapture = {
+      ...capture,
+      id: "REEL123",
+      url: "https://www.instagram.com/reels/REEL123/",
+    };
+    const session = addCapturedPost(createScanSession(reelProfile), reelCapture);
+
+    expect(isCapturedPost(session, reelCapture.url)).toBe(true);
+    expect(isCapturedPost(session, reelProfile.postUrls[0])).toBe(true);
+    expect(getNextPostUrl(session)).toBe("https://www.instagram.com/p/next/");
+  });
+
+  it("can skip an unavailable reel and continue", () => {
+    const reelProfile = {
+      ...profile,
+      postUrls: [
+        "https://www.instagram.com/reel/REEL123/",
+        "https://www.instagram.com/p/next/",
+      ],
+    };
+    const session = skipPost(
+      createScanSession(reelProfile),
+      "https://www.instagram.com/reels/REEL123/?source=test",
+    );
+
+    expect(session.skippedPostUrls).toHaveLength(1);
+    expect(getNextPostUrl(session)).toBe("https://www.instagram.com/p/next/");
   });
 
   it("builds one combined analysis sample", () => {

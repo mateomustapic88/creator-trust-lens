@@ -40,6 +40,7 @@ export type ScanSession = {
   mode?: ScanMode;
   postUrls: string[];
   capturedPosts: CapturedPost[];
+  skippedPostUrls?: string[];
   createdAt: string;
   updatedAt: string;
 };

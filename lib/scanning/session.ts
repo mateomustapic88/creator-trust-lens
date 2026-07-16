@@ -13,7 +13,24 @@ function canonicalPostUrl(value: string): string {
   const url = new URL(value);
   url.hash = "";
   url.search = "";
+  url.pathname = url.pathname.replace(/^\/reels\//, "/reel/");
   return url.href.endsWith("/") ? url.href : `${url.href}/`;
+}
+
+function postIdFromUrl(value: string): string | undefined {
+  try {
+    const segments = new URL(value).pathname.split("/").filter(Boolean);
+    const typeIndex = segments.findIndex((segment) =>
+      ["p", "reel", "reels"].includes(segment),
+    );
+    return typeIndex >= 0 ? segments[typeIndex + 1] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function postKey(value: string): string {
+  return postIdFromUrl(value) ?? canonicalPostUrl(value);
 }
 
 export function createScanSession(
@@ -35,6 +52,7 @@ export function createScanSession(
     mode,
     postUrls,
     capturedPosts: [],
+    skippedPostUrls: [],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -51,22 +69,42 @@ export function addCapturedPost(
   return {
     ...session,
     capturedPosts: [...capturedPosts, capturedPost],
+    skippedPostUrls: (session.skippedPostUrls ?? []).filter(
+      (url) => postKey(url) !== capturedPost.id,
+    ),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function skipPost(session: ScanSession, url: string): ScanSession {
+  const skippedPostUrls = session.skippedPostUrls ?? [];
+  const key = postKey(url);
+
+  return {
+    ...session,
+    skippedPostUrls: [
+      ...skippedPostUrls.filter((skippedUrl) => postKey(skippedUrl) !== key),
+      canonicalPostUrl(url),
+    ],
     updatedAt: new Date().toISOString(),
   };
 }
 
 export function getNextPostUrl(session: ScanSession): string | undefined {
-  const capturedUrls = new Set(
-    session.capturedPosts.map((post) => canonicalPostUrl(post.url)),
+  const completedKeys = new Set(
+    session.capturedPosts.map((post) => post.id || postKey(post.url)),
   );
-  return session.postUrls.find((url) => !capturedUrls.has(canonicalPostUrl(url)));
+  for (const url of session.skippedPostUrls ?? []) {
+    completedKeys.add(postKey(url));
+  }
+  return session.postUrls.find((url) => !completedKeys.has(postKey(url)));
 }
 
 export function isSessionPost(session: ScanSession, url?: string): boolean {
   if (!url) return false;
   try {
-    const canonical = canonicalPostUrl(url);
-    return session.postUrls.some((postUrl) => canonicalPostUrl(postUrl) === canonical);
+    const key = postKey(url);
+    return session.postUrls.some((postUrl) => postKey(postUrl) === key);
   } catch {
     return false;
   }
@@ -75,9 +113,9 @@ export function isSessionPost(session: ScanSession, url?: string): boolean {
 export function isCapturedPost(session: ScanSession, url?: string): boolean {
   if (!url) return false;
   try {
-    const canonical = canonicalPostUrl(url);
+    const key = postKey(url);
     return session.capturedPosts.some(
-      (post) => canonicalPostUrl(post.url) === canonical,
+      (post) => post.id === key || postKey(post.url) === key,
     );
   } catch {
     return false;

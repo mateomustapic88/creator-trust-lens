@@ -20,6 +20,10 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 4. The extension loads comment batches with a fixed attempt limit and captures up to 150 visible comments. Nothing is collected until you click.
 5. Finish at any point to calculate a trust score, confidence level, and evidence cards from the combined sample.
 
+Reel URL variants are matched by media ID rather than their full URL. A post or
+reel that is unavailable, has comments disabled, or cannot be parsed can be
+skipped without blocking the remaining scan queue.
+
 The score is withheld when the sample is too small. Instagram markup changes frequently, so the platform adapter is intentionally isolated from the analysis engine.
 
 ### Scan modes
