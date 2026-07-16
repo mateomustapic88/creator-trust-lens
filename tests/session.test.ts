@@ -3,6 +3,7 @@ import type { CapturedPost, DiscoveredProfile } from "../lib/analysis/types";
 import {
   addCapturedPost,
   buildProfileSample,
+  CURRENT_COLLECTOR_VERSION,
   createScanSession,
   getNextPostUrl,
   isCapturedPost,
@@ -34,6 +35,7 @@ const capture: CapturedPost = {
 describe("guided scan session", () => {
   it("creates a bounded, canonical queue", () => {
     const session = createScanSession(profile);
+    expect(session.collectorVersion).toBe(CURRENT_COLLECTOR_VERSION);
     expect(session.postUrls).toEqual([
       "https://www.instagram.com/p/one/",
       "https://www.instagram.com/p/two/",

@@ -15,6 +15,7 @@ import type {
 import { MESSAGE_TYPES } from "../../lib/messages";
 import {
   ACTIVE_SESSION_KEY,
+  CURRENT_COLLECTOR_VERSION,
   addCapturedPost,
   buildProfileSample,
   createScanSession,
@@ -68,7 +69,18 @@ export function App() {
 
   useEffect(() => {
     void chrome.storage.local.get(ACTIVE_SESSION_KEY).then((stored) => {
-      setSession(stored[ACTIVE_SESSION_KEY] as ScanSession | undefined);
+      const storedSession = stored[ACTIVE_SESSION_KEY] as ScanSession | undefined;
+      if (
+        storedSession &&
+        storedSession.collectorVersion !== CURRENT_COLLECTOR_VERSION
+      ) {
+        void chrome.storage.local.remove(ACTIVE_SESSION_KEY);
+        setError(
+          "The Instagram collector was upgraded. Start a new scan so old partial captures are not reused.",
+        );
+        return;
+      }
+      setSession(storedSession);
     });
 
     const syncActiveUrl = async () => setActiveUrl((await getActiveTab())?.url);

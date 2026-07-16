@@ -26,6 +26,12 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 The report cannot finish until every queued post is captured or explicitly
 skipped, and every captured post satisfies the selected mode's comment target.
 
+Instagram comment dialogs use virtualized infinite scrolling. The collector
+targets the active dialog, moves through it in measured viewport steps, and
+accumulates every rendered window before Instagram removes it from the DOM.
+Sessions created by older collector versions are discarded to prevent partial
+legacy captures from entering a new report.
+
 Reel URL variants are matched by media ID rather than their full URL. A post or
 reel that is unavailable, has comments disabled, or cannot be parsed can be
 skipped without blocking the remaining scan queue.

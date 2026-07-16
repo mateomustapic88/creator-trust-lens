@@ -8,6 +8,7 @@ import type {
 import { getScanModeConfig } from "./modes";
 
 export const ACTIVE_SESSION_KEY = "creatorTrustLens:activeSession";
+export const CURRENT_COLLECTOR_VERSION = 2;
 
 function canonicalPostUrl(value: string): string {
   const url = new URL(value);
@@ -46,6 +47,7 @@ export function createScanSession(
 
   return {
     id: crypto.randomUUID(),
+    collectorVersion: CURRENT_COLLECTOR_VERSION,
     handle: profile.handle,
     profileUrl: profile.profileUrl,
     followerCount: profile.followerCount,

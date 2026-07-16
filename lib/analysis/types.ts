@@ -34,6 +34,7 @@ export type ScanMode = "quick" | "standard" | "deep";
 
 export type ScanSession = {
   id: string;
+  collectorVersion?: number;
   handle: string;
   profileUrl: string;
   followerCount?: number;

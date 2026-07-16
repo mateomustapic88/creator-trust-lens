@@ -115,11 +115,21 @@ function readDocumentPostUrl(document: Document): string | undefined {
   );
 }
 
+function isVisibleElement(element: HTMLElement): boolean {
+  return element.getClientRects().length > 0;
+}
+
+function getActiveCommentScope(document: Document): Document | HTMLElement {
+  const dialogs = [
+    ...document.querySelectorAll<HTMLElement>('div[role="dialog"]'),
+  ].filter(isVisibleElement);
+  return dialogs.at(-1) ?? document.querySelector<HTMLElement>("main") ?? document;
+}
+
 function readPostOwner(document: Document): string | undefined {
-  const href = document
-    .querySelector<HTMLAnchorElement>(
-      'main header a[href], div[role="dialog"] header a[href]',
-    )
+  const scope = getActiveCommentScope(document);
+  const href = scope
+    .querySelector<HTMLAnchorElement>('header a[href], a[href]')
     ?.getAttribute("href");
   return readHandleFromHref(href);
 }
@@ -204,9 +214,8 @@ function readVisibleComments(
   owner?: string,
 ): VisibleComment[] {
   const comments: VisibleComment[] = [];
-  const authorLinks = document.querySelectorAll<HTMLAnchorElement>(
-    'main a[href], div[role="dialog"] a[href]',
-  );
+  const scope = getActiveCommentScope(document);
+  const authorLinks = scope.querySelectorAll<HTMLAnchorElement>('a[href]');
 
   for (const authorLink of authorLinks) {
     const author = readHandleFromHref(authorLink.getAttribute("href"));
@@ -252,8 +261,9 @@ export function isLoadMoreCommentsLabel(value: string): boolean {
 function findLoadMoreCommentsControl(
   document: Document,
 ): HTMLElement | undefined {
-  const controls = document.querySelectorAll<HTMLElement>(
-    'main button, main [role="button"], div[role="dialog"] button, div[role="dialog"] [role="button"]',
+  const scope = getActiveCommentScope(document);
+  const controls = scope.querySelectorAll<HTMLElement>(
+    'button, [role="button"]',
   );
 
   return [...controls].find((control) => {
@@ -266,17 +276,17 @@ function findLoadMoreCommentsControl(
       .filter(Boolean)
       .join(" ");
 
-    return control.getClientRects().length > 0 && isLoadMoreCommentsLabel(label);
+    return isVisibleElement(control) && isLoadMoreCommentsLabel(label);
   });
 }
 
 function findScrollableCommentsContainer(
   document: Document,
 ): HTMLElement | undefined {
+  const scope = getActiveCommentScope(document);
   const candidates = [
-    ...document.querySelectorAll<HTMLElement>(
-      'div[role="dialog"] div, main div',
-    ),
+    ...(scope instanceof HTMLElement ? [scope] : []),
+    ...scope.querySelectorAll<HTMLElement>("div"),
   ].filter((element) => {
     if (
       element.clientHeight < 100 ||
@@ -287,14 +297,32 @@ function findScrollableCommentsContainer(
     }
 
     const overflowY = document.defaultView?.getComputedStyle(element).overflowY;
-    const containsCommentStructure = Boolean(
-      element.querySelector('a[href]') &&
-        (element.querySelector("time") || element.querySelector('span[dir="auto"]')),
+    const profileLinks = [...element.querySelectorAll<HTMLAnchorElement>('a[href]')]
+      .filter((link) => readHandleFromHref(link.getAttribute("href"))).length;
+    const timestamps = element.querySelectorAll("time").length;
+    const containsCommentStructure = profileLinks >= 2 || timestamps >= 2;
+    return (
+      containsCommentStructure &&
+      ["auto", "scroll", "hidden"].includes(overflowY ?? "")
     );
-    return containsCommentStructure && ["auto", "scroll"].includes(overflowY ?? "");
   });
 
-  return candidates.sort((left, right) => left.clientHeight - right.clientHeight)[0];
+  return candidates.sort((left, right) => {
+    const leftDialog = left.closest('div[role="dialog"]') ? 1 : 0;
+    const rightDialog = right.closest('div[role="dialog"]') ? 1 : 0;
+    if (leftDialog !== rightDialog) return rightDialog - leftDialog;
+    return left.clientHeight - right.clientHeight;
+  })[0];
+}
+
+export function getNextCommentScrollTop(
+  scrollTop: number,
+  clientHeight: number,
+  scrollHeight: number,
+): number {
+  const maximum = Math.max(0, scrollHeight - clientHeight);
+  const step = Math.max(240, Math.floor(clientHeight * 0.75));
+  return Math.min(maximum, scrollTop + step);
 }
 
 export function getCommentSampleTarget(
@@ -381,7 +409,11 @@ export async function loadAndCaptureInstagramPost(
       control.click();
     } else if (scrollContainer) {
       const previousTop = scrollContainer.scrollTop;
-      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      scrollContainer.scrollTop = getNextCommentScrollTop(
+        previousTop,
+        scrollContainer.clientHeight,
+        scrollContainer.scrollHeight,
+      );
       scrollContainer.dispatchEvent(new Event("scroll", { bubbles: true }));
       if (scrollContainer.scrollTop === previousTop && unchangedAttempts >= 4) {
         break;
