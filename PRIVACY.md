@@ -8,7 +8,10 @@ The initial version:
 - does not transmit scanned profile information to a Creator Trust Lens server;
 - does not sell personal information;
 - does not access private Instagram profiles or bypass access controls; and
-- stores scan results locally in Chrome storage so the user can review them.
+- stores scan results locally in Chrome storage so the user can review them; and
+- keeps up to 12 lightweight history snapshots per scanned profile for
+  longitudinal comparison. History snapshots contain follower counts and post
+  metrics, but do not duplicate captured comment text.
 
 Users can remove locally stored results by clearing the extension's data or uninstalling it.
 

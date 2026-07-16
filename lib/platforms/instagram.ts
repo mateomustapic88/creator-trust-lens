@@ -143,6 +143,38 @@ function isMetadataText(value: string): boolean {
   );
 }
 
+const GIF_MEDIA_PATTERN = /\b(?:animated\s+(?:gif|image)|gif|giphy|tenor)\b/i;
+
+export function isGifOnlyComment(
+  text?: string,
+  mediaHints: string[] = [],
+): boolean {
+  const normalizedText = text?.replace(/\s+/g, " ").trim() ?? "";
+  if (/^(?:animated\s+(?:gif|image)|gif|giphy)$/i.test(normalizedText)) {
+    return true;
+  }
+
+  return (
+    mediaHints.some((hint) => GIF_MEDIA_PATTERN.test(hint)) &&
+    (!normalizedText || GIF_MEDIA_PATTERN.test(normalizedText))
+  );
+}
+
+function readCommentMediaHints(container: HTMLElement): string[] {
+  return [
+    ...container.querySelectorAll<HTMLElement>(
+      'img, video, [role="img"], [aria-label], [title]',
+    ),
+  ].flatMap((element) =>
+    [
+      element.getAttribute("alt"),
+      element.getAttribute("aria-label"),
+      element.getAttribute("title"),
+      element.getAttribute("src"),
+    ].filter((value): value is string => Boolean(value)),
+  );
+}
+
 function readHandleFromHref(href?: string | null): string | undefined {
   if (!href) return undefined;
 
@@ -227,7 +259,9 @@ function readVisibleComments(
     if (!container) continue;
     const text = readCommentText(container, authorLink, author);
 
-    if (!text) continue;
+    if (!text || isGifOnlyComment(text, readCommentMediaHints(container))) {
+      continue;
+    }
     comments.push({ author, text, postId });
   }
 
@@ -252,6 +286,28 @@ function readPostCounts(document: Document): {
     likes: match[1] ? parseCompactNumber(match[1]) : undefined,
     commentCount: match[2] ? parseCompactNumber(match[2]) : undefined,
   };
+}
+
+function readPublishedAt(document: Document): string | undefined {
+  const metadataDate = document.querySelector<HTMLMetaElement>(
+    'meta[property="article:published_time"]',
+  )?.content;
+  const visibleDate = [
+    ...getActiveCommentScope(document).querySelectorAll<HTMLTimeElement>(
+      "time[datetime]",
+    ),
+  ]
+    .map((element) => element.dateTime)
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort((left, right) => Date.parse(left) - Date.parse(right))[0];
+  const value = metadataDate ?? visibleDate;
+  if (!value || !Number.isFinite(Date.parse(value))) return undefined;
+  return new Date(value).toISOString();
+}
+
+function readMediaType(value: string): VisiblePost["mediaType"] {
+  const pathname = new URL(value, "https://www.instagram.com").pathname;
+  return /^\/reels?\//.test(pathname) ? "reel" : "post";
 }
 
 export function getCommentSampleTarget(
@@ -367,6 +423,9 @@ export function createPassiveInstagramCollector(
       id,
       url: captureUrl,
       ...counts,
+      publishedAt: readPublishedAt(document),
+      mediaType: readMediaType(captureUrl),
+      sampleTarget: target,
       comments,
     };
   };
@@ -447,6 +506,9 @@ export function captureInstagramPost(
     id,
     url: captureUrl,
     ...counts,
+    publishedAt: readPublishedAt(document),
+    mediaType: readMediaType(captureUrl),
+    sampleTarget: comments.length,
     comments,
   };
 }

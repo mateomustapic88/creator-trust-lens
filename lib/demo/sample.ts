@@ -18,6 +18,7 @@ const REPEATED_COMMENTS = [
 
 export function createDemoProfileSample(): ProfileSample {
   const comments: VisibleComment[] = [];
+  const scannedAt = new Date();
 
   for (let postIndex = 0; postIndex < POST_COUNT; postIndex += 1) {
     const postId = `demo-post-${postIndex + 1}`;
@@ -43,13 +44,18 @@ export function createDemoProfileSample(): ProfileSample {
 
   return {
     handle: "sample_creator",
-    scannedAt: new Date().toISOString(),
+    scannedAt: scannedAt.toISOString(),
     followerCount: 120_000,
     posts: likes.map((likeCount, index) => ({
       id: `demo-post-${index + 1}`,
       url: `https://www.instagram.com/p/demo-${index + 1}/`,
       likes: likeCount,
       commentCount: 16,
+      mediaType: "post",
+      publishedAt: new Date(
+        scannedAt.getTime() - (index + 3) * 24 * 60 * 60 * 1_000,
+      ).toISOString(),
+      sampleTarget: 16,
     })),
     comments,
   };

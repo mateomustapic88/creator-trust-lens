@@ -9,6 +9,9 @@ export type VisiblePost = {
   url: string;
   likes?: number;
   commentCount?: number;
+  publishedAt?: string;
+  mediaType?: "post" | "reel";
+  sampleTarget?: number;
 };
 
 export type ProfileSample = {
@@ -17,6 +20,13 @@ export type ProfileSample = {
   followerCount?: number;
   posts: VisiblePost[];
   comments: VisibleComment[];
+};
+
+export type ProfileHistorySnapshot = {
+  handle: string;
+  scannedAt: string;
+  followerCount?: number;
+  posts: VisiblePost[];
 };
 
 export type DiscoveredProfile = {
@@ -54,7 +64,10 @@ export type EvidenceItem = {
     | "diversity"
     | "anomalies"
     | "engagement_rate"
-    | "comment_like_ratio";
+    | "comment_like_ratio"
+    | "sample_coverage"
+    | "growth_alignment"
+    | "historical_spikes";
   label: string;
   value: string;
   score: number;
@@ -73,4 +86,6 @@ export type AnalysisResult = {
   commentsScanned: number;
   evidence: EvidenceItem[];
   scannedAt: string;
+  sampleCoverage?: number;
+  historySnapshots?: number;
 };

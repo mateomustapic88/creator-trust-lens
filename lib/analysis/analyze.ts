@@ -2,8 +2,10 @@ import type {
   AnalysisResult,
   Confidence,
   EvidenceItem,
+  ProfileHistorySnapshot,
   ProfileSample,
   VisibleComment,
+  VisiblePost,
 } from "./types";
 import {
   isGenericComment,
@@ -27,11 +29,57 @@ function formatPercent(value: number): string {
   return `${(value * 100).toFixed(value < 0.01 ? 2 : 1)}%`;
 }
 
-function getConfidence(posts: number, comments: number): Confidence {
+const HOUR_MS = 60 * 60 * 1_000;
+const DAY_MS = 24 * HOUR_MS;
+
+function downgradeConfidence(confidence: Confidence): Confidence {
+  if (confidence === "high") return "medium";
+  if (confidence === "medium") return "low";
+  if (confidence === "low") return "low";
+  return confidence;
+}
+
+function getConfidence(
+  posts: number,
+  comments: number,
+  sampleCoverage?: number,
+): Confidence {
+  let confidence: Confidence;
   if (posts < 3 || comments < 20) return "insufficient";
-  if (posts >= 9 && comments >= 200) return "high";
-  if (posts >= 6 && comments >= 80) return "medium";
-  return "low";
+  if (posts >= 9 && comments >= 200) confidence = "high";
+  else if (posts >= 6 && comments >= 80) confidence = "medium";
+  else confidence = "low";
+
+  return sampleCoverage !== undefined && sampleCoverage < 0.5
+    ? downgradeConfidence(confidence)
+    : confidence;
+}
+
+function settledPosts(sample: ProfileSample): VisiblePost[] {
+  const scannedAt = Date.parse(sample.scannedAt);
+  if (!Number.isFinite(scannedAt)) return sample.posts;
+
+  return sample.posts.filter((post) => {
+    if (!post.publishedAt) return true;
+    const publishedAt = Date.parse(post.publishedAt);
+    return !Number.isFinite(publishedAt) || scannedAt - publishedAt >= 48 * HOUR_MS;
+  });
+}
+
+function mediaGroup(post: VisiblePost): string {
+  return post.mediaType ?? "unknown format";
+}
+
+function medianByMedia<T extends { post: VisiblePost }>(
+  items: T[],
+  value: (item: T) => number,
+): number {
+  const groups = new Map<string, number[]>();
+  for (const item of items) {
+    const key = mediaGroup(item.post);
+    groups.set(key, [...(groups.get(key) ?? []), value(item)]);
+  }
+  return median([...groups.values()].map((values) => median(values)));
 }
 
 function duplicateEvidence(comments: VisibleComment[]): EvidenceItem {
@@ -157,8 +205,58 @@ function diversityEvidence(comments: VisibleComment[]): EvidenceItem {
   };
 }
 
+function sampleCoverageEvidence(sample: ProfileSample): EvidenceItem {
+  const commentCounts = new Map<string, number>();
+  for (const comment of sample.comments) {
+    commentCounts.set(
+      comment.postId,
+      (commentCounts.get(comment.postId) ?? 0) + 1,
+    );
+  }
+
+  const coverage = sample.posts
+    .filter((post) => post.sampleTarget && post.sampleTarget > 0)
+    .map((post) => ({
+      post,
+      ratio: Math.min(
+        1,
+        (commentCounts.get(post.id) ?? 0) / (post.sampleTarget ?? 1),
+      ),
+    }));
+
+  if (coverage.length === 0) {
+    return {
+      id: "sample_coverage",
+      label: "Sample completeness",
+      value: "N/A",
+      score: 0,
+      explanation: "Collection targets were not available for this scan.",
+      examples: [],
+    };
+  }
+
+  const average =
+    coverage.reduce((total, item) => total + item.ratio, 0) / coverage.length;
+  const incomplete = coverage
+    .filter((item) => item.ratio < 1)
+    .sort((left, right) => left.ratio - right.ratio);
+
+  return {
+    id: "sample_coverage",
+    label: "Sample completeness",
+    value: formatPercent(average),
+    score: 0,
+    explanation: "Share of the chosen per-post comment targets captured. This changes confidence, not observed risk.",
+    examples: incomplete
+      .slice(0, 3)
+      .map(({ post, ratio }) => `${post.id}: ${formatPercent(ratio)} captured`),
+  };
+}
+
 function anomalyEvidence(sample: ProfileSample): EvidenceItem {
-  const postEngagement = sample.posts
+  const eligiblePosts = settledPosts(sample);
+  const freshPostCount = sample.posts.length - eligiblePosts.length;
+  const postEngagement = eligiblePosts
     .map((post) => {
       if (post.likes === undefined) return undefined;
       return {
@@ -168,32 +266,45 @@ function anomalyEvidence(sample: ProfileSample): EvidenceItem {
     })
     .filter((item): item is NonNullable<typeof item> => item !== undefined);
 
-  if (postEngagement.length < 4) {
+  const groups = new Map<string, typeof postEngagement>();
+  for (const item of postEngagement) {
+    const key = mediaGroup(item.post);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  const comparableGroups = [...groups.values()].filter(
+    (group) => group.length >= 4,
+  );
+
+  if (comparableGroups.length === 0) {
     return {
       id: "anomalies",
       label: "Engagement anomalies",
       value: "N/A",
       score: 0,
-      explanation: "At least four posts with visible like totals are required.",
+      explanation: "At least four settled posts of the same format with visible like totals are required.",
       examples: [],
     };
   }
 
-  const typical = median(postEngagement.map((item) => item.engagement));
-  const deviation = median(
-    postEngagement.map((item) => Math.abs(item.engagement - typical)),
-  );
-  const threshold = typical + Math.max(deviation * 4, typical * 1.5);
-  const anomalies = postEngagement.filter(
-    (item) => item.engagement > threshold,
+  const anomalies = comparableGroups.flatMap((group) => {
+    const typical = median(group.map((item) => item.engagement));
+    const deviation = median(
+      group.map((item) => Math.abs(item.engagement - typical)),
+    );
+    const threshold = typical + Math.max(deviation * 4, typical * 1.5);
+    return group.filter((item) => item.engagement > threshold);
+  });
+  const comparablePostCount = comparableGroups.reduce(
+    (total, group) => total + group.length,
+    0,
   );
 
   return {
     id: "anomalies",
     label: "Engagement spikes",
     value: `${anomalies.length}`,
-    score: clamp((anomalies.length / postEngagement.length) * 160),
-    explanation: "Visible post engagement far outside this profile's typical range.",
+    score: clamp((anomalies.length / comparablePostCount) * 160),
+    explanation: `Visible engagement far outside comparable settled posts of the same format.${freshPostCount ? ` ${freshPostCount} fresh post${freshPostCount === 1 ? " was" : "s were"} excluded.` : ""}`,
     examples: anomalies
       .slice(0, 3)
       .map(({ post, engagement }) => `${post.id}: ${engagement.toLocaleString()} interactions`),
@@ -202,13 +313,18 @@ function anomalyEvidence(sample: ProfileSample): EvidenceItem {
 
 function engagementRateEvidence(sample: ProfileSample): EvidenceItem {
   const followerCount = sample.followerCount;
-  const rates = sample.posts
+  const eligiblePosts = settledPosts(sample);
+  const freshPostCount = sample.posts.length - eligiblePosts.length;
+  const rates = eligiblePosts
     .map((post) =>
       followerCount && post.likes !== undefined
-        ? (post.likes + (post.commentCount ?? 0)) / followerCount
+        ? {
+            post,
+            rate: (post.likes + (post.commentCount ?? 0)) / followerCount,
+          }
         : undefined,
     )
-    .filter((rate): rate is number => rate !== undefined);
+    .filter((item): item is NonNullable<typeof item> => item !== undefined);
 
   if (!followerCount || rates.length < 3) {
     return {
@@ -221,7 +337,7 @@ function engagementRateEvidence(sample: ProfileSample): EvidenceItem {
     };
   }
 
-  const typicalRate = median(rates);
+  const typicalRate = medianByMedia(rates, (item) => item.rate);
   const conservativeFloor =
     followerCount < 100_000 ? 0.003 : followerCount < 1_000_000 ? 0.0015 : 0.0008;
   const shortfall = Math.max(0, conservativeFloor - typicalRate) / conservativeFloor;
@@ -231,7 +347,7 @@ function engagementRateEvidence(sample: ProfileSample): EvidenceItem {
     label: "Typical engagement",
     value: formatPercent(typicalRate),
     score: clamp(shortfall * 60),
-    explanation: "Median visible interactions relative to followers. Very low rates merit context, but vary by creator size and content.",
+    explanation: `Median visible interactions relative to followers, balanced by content format.${freshPostCount ? ` ${freshPostCount} post${freshPostCount === 1 ? "" : "s"} under 48 hours old excluded.` : ""}`,
     examples: [
       `${rates.length} posts with visible totals`,
       `${followerCount.toLocaleString()} followers observed`,
@@ -240,7 +356,8 @@ function engagementRateEvidence(sample: ProfileSample): EvidenceItem {
 }
 
 function commentLikeRatioEvidence(sample: ProfileSample): EvidenceItem {
-  const ratios = sample.posts
+  const eligiblePosts = settledPosts(sample);
+  const ratios = eligiblePosts
     .map((post) =>
       post.likes && post.commentCount !== undefined
         ? { post, ratio: post.commentCount / post.likes }
@@ -259,7 +376,7 @@ function commentLikeRatioEvidence(sample: ProfileSample): EvidenceItem {
     };
   }
 
-  const typicalRatio = median(ratios.map((item) => item.ratio));
+  const typicalRatio = medianByMedia(ratios, (item) => item.ratio);
   const score = clamp(Math.max(0, typicalRatio - 0.1) * 300);
   const highest = [...ratios].sort((left, right) => right.ratio - left.ratio);
 
@@ -275,6 +392,147 @@ function commentLikeRatioEvidence(sample: ProfileSample): EvidenceItem {
   };
 }
 
+function findHistoricalBaseline(
+  sample: ProfileSample,
+  history: ProfileHistorySnapshot[],
+  minimumAge: number,
+  maximumAge: number,
+): ProfileHistorySnapshot | undefined {
+  const scannedAt = Date.parse(sample.scannedAt);
+  return [...history]
+    .filter((snapshot) => {
+      const timestamp = Date.parse(snapshot.scannedAt);
+      const age = scannedAt - timestamp;
+      return Number.isFinite(timestamp) && age >= minimumAge && age <= maximumAge;
+    })
+    .sort((left, right) => Date.parse(right.scannedAt) - Date.parse(left.scannedAt))[0];
+}
+
+function medianInteractions(posts: VisiblePost[]): number | undefined {
+  const values = posts
+    .filter((post) => post.likes !== undefined)
+    .map((post) => (post.likes ?? 0) + (post.commentCount ?? 0));
+  return values.length >= 3 ? median(values) : undefined;
+}
+
+function growthAlignmentEvidence(
+  sample: ProfileSample,
+  history: ProfileHistorySnapshot[],
+): EvidenceItem {
+  const baseline = findHistoricalBaseline(
+    sample,
+    history,
+    7 * DAY_MS,
+    120 * DAY_MS,
+  );
+  const currentFollowers = sample.followerCount;
+  const previousFollowers = baseline?.followerCount;
+  const currentEngagement = medianInteractions(settledPosts(sample));
+  const previousEngagement = baseline
+    ? medianInteractions(baseline.posts)
+    : undefined;
+
+  if (
+    !baseline ||
+    !currentFollowers ||
+    !previousFollowers ||
+    currentEngagement === undefined ||
+    previousEngagement === undefined
+  ) {
+    return {
+      id: "growth_alignment",
+      label: "Growth alignment",
+      value: "N/A",
+      score: 0,
+      explanation: "Requires comparable scans at least seven days apart with follower and engagement totals.",
+      examples: [],
+    };
+  }
+
+  const followerGrowth = (currentFollowers - previousFollowers) / previousFollowers;
+  const engagementGrowth =
+    (currentEngagement - previousEngagement) / Math.max(1, previousEngagement);
+  const isMisaligned =
+    followerGrowth >= 0.1 && engagementGrowth < followerGrowth * 0.25;
+  const mismatch = isMisaligned
+    ? (followerGrowth - Math.max(0, engagementGrowth)) / followerGrowth
+    : 0;
+
+  return {
+    id: "growth_alignment",
+    label: "Follower-growth alignment",
+    value: formatPercent(followerGrowth),
+    score: clamp(mismatch * 55),
+    explanation: "Checks whether substantial follower growth is accompanied by movement in typical visible post engagement.",
+    examples: [
+      `Typical engagement change: ${formatPercent(engagementGrowth)}`,
+      `Compared with ${new Date(baseline.scannedAt).toLocaleDateString()}`,
+    ],
+  };
+}
+
+function historicalSpikeEvidence(
+  sample: ProfileSample,
+  history: ProfileHistorySnapshot[],
+): EvidenceItem {
+  const baseline = findHistoricalBaseline(
+    sample,
+    history,
+    DAY_MS,
+    30 * DAY_MS,
+  );
+  if (!baseline) {
+    return {
+      id: "historical_spikes",
+      label: "Historical post changes",
+      value: "N/A",
+      score: 0,
+      explanation: "Requires the same posts in scans taken at least one day apart.",
+      examples: [],
+    };
+  }
+
+  const previousPosts = new Map(baseline.posts.map((post) => [post.id, post]));
+  const changes = sample.posts
+    .map((post) => {
+      const previous = previousPosts.get(post.id);
+      if (post.likes === undefined || previous?.likes === undefined) return undefined;
+      const before = previous.likes + (previous.commentCount ?? 0);
+      const after = post.likes + (post.commentCount ?? 0);
+      return before > 0 ? { post, growth: Math.max(0, (after - before) / before) } : undefined;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== undefined);
+
+  if (changes.length < 3) {
+    return {
+      id: "historical_spikes",
+      label: "Historical post changes",
+      value: "N/A",
+      score: 0,
+      explanation: "At least three matching posts with visible totals are required.",
+      examples: [],
+    };
+  }
+
+  const typical = median(changes.map((item) => item.growth));
+  const deviation = median(
+    changes.map((item) => Math.abs(item.growth - typical)),
+  );
+  const threshold = typical + Math.max(deviation * 4, 1);
+  const spikes = changes.filter((item) => item.growth > threshold);
+
+  return {
+    id: "historical_spikes",
+    label: "Historical post changes",
+    value: `${spikes.length}`,
+    score: clamp((spikes.length / changes.length) * 80, 0, 60),
+    explanation: "Flags unusually large interaction increases relative to other matching posts between two scans.",
+    examples: spikes
+      .slice(0, 3)
+      .map(({ post, growth }) => `${post.id}: ${formatPercent(growth)} increase`),
+  };
+}
+
 const EVIDENCE_WEIGHTS: Record<EvidenceItem["id"], number> = {
   duplicates: 0.2,
   generic: 0.1,
@@ -283,10 +541,22 @@ const EVIDENCE_WEIGHTS: Record<EvidenceItem["id"], number> = {
   anomalies: 0.13,
   engagement_rate: 0.12,
   comment_like_ratio: 0.12,
+  sample_coverage: 0,
+  growth_alignment: 0.1,
+  historical_spikes: 0.08,
 };
 
-export function analyzeProfile(sample: ProfileSample): AnalysisResult {
+export function analyzeProfile(
+  sample: ProfileSample,
+  history: ProfileHistorySnapshot[] = [],
+): AnalysisResult {
+  const coverageEvidence = sampleCoverageEvidence(sample);
+  const sampleCoverage =
+    coverageEvidence.value === "N/A"
+      ? undefined
+      : Number.parseFloat(coverageEvidence.value) / 100;
   const evidence = [
+    coverageEvidence,
     duplicateEvidence(sample.comments),
     genericEvidence(sample.comments),
     recurringEvidence(sample.comments, sample.posts.length),
@@ -294,31 +564,50 @@ export function analyzeProfile(sample: ProfileSample): AnalysisResult {
     anomalyEvidence(sample),
     engagementRateEvidence(sample),
     commentLikeRatioEvidence(sample),
+    growthAlignmentEvidence(sample, history),
+    historicalSpikeEvidence(sample, history),
   ];
-  const confidence = getConfidence(sample.posts.length, sample.comments.length);
+  const confidence = getConfidence(
+    sample.posts.length,
+    sample.comments.length,
+    sampleCoverage,
+  );
 
   const availableEvidence = evidence.filter((item) => item.value !== "N/A");
   const availableWeight = availableEvidence.reduce(
     (total, item) => total + EVIDENCE_WEIGHTS[item.id],
     0,
   );
-  const suspicionScore = Math.round(
+  const rawSuspicionScore =
     availableWeight === 0
       ? 0
       : availableEvidence.reduce(
           (total, item) => total + item.score * EVIDENCE_WEIGHTS[item.id],
           0,
-        ) / availableWeight,
-  );
+        ) / availableWeight;
+  const confidenceFactor: Record<Exclude<Confidence, "insufficient">, number> = {
+    low: 0.6,
+    medium: 0.85,
+    high: 1,
+  };
+  const suspicionScore =
+    confidence === "insufficient"
+      ? undefined
+      : Math.round(
+          50 +
+            (rawSuspicionScore - 50) * confidenceFactor[confidence],
+        );
 
   return {
     handle: sample.handle,
-    trustScore: confidence === "insufficient" ? undefined : 100 - suspicionScore,
-    suspicionScore: confidence === "insufficient" ? undefined : suspicionScore,
+    trustScore: suspicionScore === undefined ? undefined : 100 - suspicionScore,
+    suspicionScore,
     confidence,
     postsScanned: sample.posts.length,
     commentsScanned: sample.comments.length,
     evidence,
     scannedAt: sample.scannedAt,
+    sampleCoverage,
+    historySnapshots: history.length,
   };
 }

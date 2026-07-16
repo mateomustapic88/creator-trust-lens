@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyzeProfile } from "../../lib/analysis/analyze";
+import {
+  appendHistorySnapshot,
+  profileHistoryKey,
+} from "../../lib/analysis/history";
 import type {
   AnalysisResult,
+  ProfileHistorySnapshot,
   ScanMode,
   ScanSession,
 } from "../../lib/analysis/types";
@@ -288,9 +293,19 @@ export function App() {
       setCollecting(false);
       setCaptureProgress(undefined);
     }
-    const analysis = analyzeProfile(buildProfileSample(session));
+    const sample = buildProfileSample(session);
+    const historyKey = profileHistoryKey(sample.handle);
+    const stored = await chrome.storage.local.get(historyKey);
+    const history = Array.isArray(stored[historyKey])
+      ? (stored[historyKey] as ProfileHistorySnapshot[])
+      : [];
+    const analysis = analyzeProfile(sample, history);
+    const nextHistory = appendHistorySnapshot(history, sample);
     setResult(analysis);
-    await chrome.storage.local.set({ [`scan:${analysis.handle}`]: analysis });
+    await chrome.storage.local.set({
+      [`scan:${analysis.handle}`]: analysis,
+      [historyKey]: nextHistory,
+    });
     setSession(undefined);
     await saveSession(undefined);
   }
@@ -522,6 +537,16 @@ export function App() {
             <p className="sample">
               {result.postsScanned} posts · {result.commentsScanned} comments scanned
             </p>
+            {(result.sampleCoverage !== undefined || result.historySnapshots) && (
+              <p className="sample reliability-summary">
+                {result.sampleCoverage !== undefined
+                  ? `${Math.round(result.sampleCoverage * 100)}% sample target coverage`
+                  : "Legacy sample"}
+                {result.historySnapshots
+                  ? ` · ${result.historySnapshots} earlier scan${result.historySnapshots === 1 ? "" : "s"} available`
+                  : " · First historical snapshot"}
+              </p>
+            )}
           </section>
 
           <section className="evidence-grid">

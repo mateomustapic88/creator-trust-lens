@@ -29,7 +29,8 @@ Scan modes define recommended evidence targets, not mandatory quotas.
 
 Instagram comment dialogs use virtualized infinite scrolling. The passive
 collector watches the active dialog and saves every rendered window before
-Instagram removes it from the DOM while the user scrolls.
+Instagram removes it from the DOM while the user scrolls. GIF-only reactions
+are excluded from captured comment totals and analysis.
 Sessions created by older collector versions are discarded to prevent partial
 legacy captures from entering a new report.
 
@@ -46,8 +47,20 @@ The score is withheld when the sample is too small. Instagram markup changes fre
 - **Deep:** 12 posts, up to 300 comments per post
 
 The report combines repeated and low-information comments, recurring accounts,
-audience diversity, and engagement variation. These remain observable signals,
-not conclusions about how engagement was obtained.
+audience diversity, sample completeness, age-normalized engagement, media-aware
+variation, and comment-to-like balance. Repeat scans also compare follower and
+post-engagement changes using a bounded local history. These remain observable
+signals, not conclusions about how engagement was obtained.
+
+Fresh posts under 48 hours old are excluded from settled-engagement comparisons.
+Reels and regular posts are compared within their own formats where enough data
+exists. Incomplete collection targets reduce confidence but do not add risk
+points. Missing metrics are excluded from score weighting rather than treated as
+positive evidence.
+
+Low and medium confidence scores are pulled toward a neutral result so a limited
+sample cannot appear fully verified. Historical snapshots contain follower and
+post totals only; comment text is not duplicated into history.
 
 ## Report exports
 

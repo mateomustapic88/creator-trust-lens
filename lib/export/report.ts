@@ -100,6 +100,8 @@ export function buildAnalysisSpreadsheet(result: AnalysisResult): string {
    <Row>${xmlCell("Review status", "Label")}${xmlCell(reviewText(result), "Accent")}</Row>
    <Row>${xmlCell("Posts scanned", "Label")}${xmlCell(result.postsScanned, "Number", "Number")}</Row>
    <Row>${xmlCell("Comments scanned", "Label")}${xmlCell(result.commentsScanned, "Number", "Number")}</Row>
+   <Row>${xmlCell("Sample target coverage", "Label")}${xmlCell(result.sampleCoverage === undefined ? "Not available" : `${Math.round(result.sampleCoverage * 100)}%`)}</Row>
+   <Row>${xmlCell("Earlier scans available", "Label")}${xmlCell(result.historySnapshots ?? 0, "Number", "Number")}</Row>
    <Row>${xmlCell("Scanned at", "Label")}${xmlCell(new Date(result.scannedAt).toLocaleString())}</Row>
    <Row ss:Height="44"><Cell ss:MergeAcross="1" ss:StyleID="Warning"><Data ss:Type="String">This analysis shows observable engagement signals from a limited public sample. It is not proof that engagement was purchased, automated, or fraudulent.</Data></Cell></Row>
   </Table>
@@ -268,7 +270,7 @@ export async function exportAnalysisPdf(result: AnalysisResult) {
   doc.text(confidenceText(result), 83, 78);
   doc.setTextColor(...COLORS.muted);
   const overview = doc.splitTextToSize(
-    "The score combines repeated comments, low-information comments, recurring accounts, audience diversity, and engagement variation.",
+    "The score combines comment quality, audience breadth, age-normalized post engagement, format-aware comparisons, sample completeness, and available local history.",
     100,
   ) as string[];
   doc.text(overview, 83, 87);

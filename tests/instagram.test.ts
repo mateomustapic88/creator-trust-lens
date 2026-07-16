@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getCommentSampleTarget,
+  isGifOnlyComment,
   parseInstagramPostId,
 } from "../lib/platforms/instagram";
 
@@ -31,5 +32,28 @@ describe("comment sample targets", () => {
 
   it("requires the selected limit when Instagram does not expose a total", () => {
     expect(getCommentSampleTarget(150)).toBe(150);
+  });
+});
+
+describe("GIF comment filtering", () => {
+  it.each(["GIF", "gif", "Animated GIF", "GIPHY"])(
+    "ignores the GIF-only placeholder %s",
+    (text) => {
+      expect(isGifOnlyComment(text)).toBe(true);
+    },
+  );
+
+  it("ignores an animated media row without meaningful text", () => {
+    expect(isGifOnlyComment(undefined, ["Animated image", "GIF"])).toBe(true);
+  });
+
+  it("keeps a normal written comment that mentions a GIF", () => {
+    expect(isGifOnlyComment("That GIF made me laugh")).toBe(false);
+  });
+
+  it("does not treat a regular profile image as a GIF", () => {
+    expect(
+      isGifOnlyComment("Great post", ["Alex's profile picture"]),
+    ).toBe(false);
   });
 });
