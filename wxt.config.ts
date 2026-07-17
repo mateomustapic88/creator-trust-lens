@@ -3,9 +3,9 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   manifest: {
-    name: "Creator Trust Lens",
+    name: "Creator Trust Lens: Instagram Review",
     description:
-      "Inspect public Instagram engagement signals and review the evidence behind a profile trust score.",
+      "Review Instagram creators with trust scores, comment analysis, engagement signals, and clear confidence levels.",
     permissions: ["activeTab", "sidePanel", "storage"],
     host_permissions: ["https://www.instagram.com/*"],
     icons: {

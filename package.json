@@ -1,9 +1,9 @@
 {
   "name": "creator-trust-lens",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
-  "description": "Transparent Instagram engagement trust analysis in Chrome.",
+  "description": "Evidence-led Instagram creator review and engagement analysis in Chrome.",
   "scripts": {
     "postinstall": "wxt prepare",
     "dev": "wxt",

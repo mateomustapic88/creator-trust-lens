@@ -2,11 +2,11 @@
 
 ## Listing details
 
-**Name:** Creator Trust Lens
+**Name:** Creator Trust Lens: Instagram Review
 
-**Summary:** Review public Instagram engagement signals with transparent evidence, confidence levels, and local-only analysis.
+**Summary:** Review Instagram creators with trust scores, comment analysis, engagement signals, and clear confidence levels.
 
-**Category:** Productivity
+**Category:** Tools
 
 **Language:** English
 
@@ -14,17 +14,17 @@
 
 ## Detailed description
 
-Creator Trust Lens helps brands, agencies, and marketing teams review observable engagement signals on public Instagram profiles before working with a creator.
+Evaluate Instagram creators before a campaign with Creator Trust Lens, a local creator review and influencer vetting tool for brands, agencies, and marketing teams.
 
-Start a guided scan from an Instagram profile, manually load the comments you want to include, and receive an evidence-led trust score with a clearly stated confidence level. The report highlights repeated comments, low-information replies, recurring commenter groups, audience diversity, engagement variation, comment-to-like balance, sample completeness, and available historical changes.
+Run a guided review from a public creator profile, manually load the comments you want to include, and receive an evidence-led creator trust score with a clearly stated confidence level. The engagement analysis highlights repeated comments, low-information replies, recurring commenter groups, audience diversity, engagement variation, comment-to-like balance, sample completeness, and available historical changes.
 
-The score is a screening aid, not a fraud verdict. Creator Trust Lens does not label creators as fake and does not claim to prove how engagement was obtained. Smaller or incomplete samples receive lower confidence, and a score is withheld when evidence is insufficient.
+Use the report for creator due diligence, influencer screening, and campaign research. The score is a screening aid, not a fraud verdict. Creator Trust Lens does not label creators as fake and does not claim to prove how engagement was obtained. Smaller or incomplete samples receive lower confidence, and a score is withheld when evidence is insufficient.
 
 Key features:
 
-- Quick, Standard, and Deep guided scan targets
+- Quick, Standard, and Deep creator review targets
 - Passive collection while you manually scroll visible comments
-- Evidence cards with examples and plain-language explanations
+- Comment-quality and engagement-signal evidence cards
 - Confidence and sample-coverage indicators
 - Age-normalized and media-aware engagement comparisons
 - Bounded local history for repeat scans
@@ -32,7 +32,9 @@ Key features:
 - Local browser processing with no Creator Trust Lens account
 - One-click deletion of all extension-local data
 
-Current scope: public Instagram profiles in Chrome on desktop. Instagram markup can change, so collection availability may vary by page and account state.
+Current scope: public Instagram creator profiles in Chrome on desktop. Page markup can change, so collection availability may vary by page and account state.
+
+Creator Trust Lens is an independent product and is not affiliated with, endorsed by, or sponsored by Instagram or Meta.
 
 ## Single purpose
 
@@ -56,8 +58,7 @@ Declare the applicable categories for:
 
 - personally identifiable information, because public Instagram handles are identifiers;
 - website content, because public profile, post, metric, and comment content is read;
-- web history or browsing activity if the dashboard category includes active Instagram URLs and the locally saved post URLs; and
-- user activity if the dashboard wording covers the user's scan actions or interaction with the active Instagram page.
+- web history, because active Instagram profile and post URLs are processed and may be stored locally during a scan.
 
 State that data is used for core functionality, is not sold, is not used for advertising or credit decisions, and is not transmitted outside the user's device. Confirm the Limited Use certification only while the implementation continues to match the privacy notice.
 
