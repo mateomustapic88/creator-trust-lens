@@ -1,6 +1,6 @@
 {
   "name": "creator-trust-lens",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Evidence-led Instagram creator review and engagement analysis in Chrome.",
@@ -15,6 +15,7 @@
     "release:check": "npm run check && npm audit --omit=dev && npm run zip"
   },
   "dependencies": {
+    "extpay": "^3.1.2",
     "jspdf": "^4.2.1",
     "react": "19.2.7",
     "react-dom": "19.2.7"

@@ -10,7 +10,7 @@ It does **not** claim to prove that a creator purchased followers or engagement.
 - User-triggered scans only
 - Publicly visible profile and post data only
 - Local analysis and local storage
-- No account, backend, paid API, or automatic bulk collection
+- No Creator Trust Lens backend, paid Instagram API, or automatic bulk collection
 
 ## Guided scan workflow
 
@@ -45,6 +45,17 @@ The score is withheld when the sample is too small. Instagram markup changes fre
 - **Quick:** 5 posts, up to 50 comments per post
 - **Standard:** 8 posts, up to 150 comments per post
 - **Deep:** 12 posts, up to 300 comments per post
+
+## Free and Pro access
+
+The Free plan includes 3 completed Quick scans per UTC calendar month and the
+full on-screen evidence report. Pro unlocks unlimited Quick, Standard, and Deep
+scans, PDF and XLS exports, and bounded historical comparisons. Payments,
+purchase restore, and subscription management are provided by ExtensionPay and
+Stripe. Instagram scan content never leaves the browser.
+
+The Free quota is intentionally stored locally for the MVP. Clearing extension
+data resets it, so it is a product limit rather than tamper-resistant metering.
 
 The report combines repeated and low-information comments, recurring accounts,
 audience diversity, sample completeness, age-normalized engagement, media-aware
@@ -84,7 +95,7 @@ local analysis engine as a real guided scan and is never saved as a real scan.
 The first-run disclosure must be accepted before the extension reads the active
 Instagram tab. The side panel links to the privacy notice and provides a
 **Delete local data** control that clears consent, active sessions, completed
-results, and bounded history from Chrome local storage.
+results, usage quota, billing login state, and bounded history from Chrome local storage.
 
 ## Development
 
@@ -126,4 +137,4 @@ Avoid:
 
 ## Privacy
 
-The MVP analyses data locally. See [PRIVACY.md](./PRIVACY.md) for the initial disclosure.
+Instagram analysis remains local. Optional billing uses ExtensionPay and Stripe as described in [PRIVACY.md](./PRIVACY.md).

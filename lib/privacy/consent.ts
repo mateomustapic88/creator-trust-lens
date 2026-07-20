@@ -1,18 +1,18 @@
-export const CONSENT_STORAGE_KEY = "creatorTrustLens:consent:v1";
+export const CONSENT_STORAGE_KEY = "creatorTrustLens:consent:v2";
 
 export const PRIVACY_POLICY_URL =
   "https://sites.google.com/view/creator-trust-lens-privacy";
 
 export interface ConsentRecord {
   accepted: true;
-  version: 1;
+  version: 2;
   acceptedAt: string;
 }
 
 export function createConsentRecord(now = new Date()): ConsentRecord {
   return {
     accepted: true,
-    version: 1,
+    version: 2,
     acceptedAt: now.toISOString(),
   };
 }
@@ -22,7 +22,7 @@ export function hasValidConsent(value: unknown): value is ConsentRecord {
   const record = value as Partial<ConsentRecord>;
   return (
     record.accepted === true &&
-    record.version === 1 &&
+    record.version === 2 &&
     typeof record.acceptedAt === "string"
   );
 }

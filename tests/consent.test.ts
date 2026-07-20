@@ -10,7 +10,7 @@ describe("privacy consent", () => {
 
     expect(record).toEqual({
       accepted: true,
-      version: 1,
+      version: 2,
       acceptedAt: "2026-07-16T10:00:00.000Z",
     });
     expect(hasValidConsent(record)).toBe(true);
@@ -18,7 +18,10 @@ describe("privacy consent", () => {
 
   it("rejects missing or outdated consent", () => {
     expect(hasValidConsent(undefined)).toBe(false);
-    expect(hasValidConsent({ accepted: false, version: 1 })).toBe(false);
+    expect(hasValidConsent({ accepted: false, version: 2 })).toBe(false);
+    expect(
+      hasValidConsent({ accepted: true, version: 1, acceptedAt: "old" }),
+    ).toBe(false);
     expect(
       hasValidConsent({ accepted: true, version: 0, acceptedAt: "old" }),
     ).toBe(false);

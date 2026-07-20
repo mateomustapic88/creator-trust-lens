@@ -11,6 +11,20 @@ import type {
   ScanSession,
 } from "../../lib/analysis/types";
 import { createDemoProfileSample } from "../../lib/demo/sample";
+import { FREE_QUICK_SCANS_PER_MONTH } from "../../lib/billing/config";
+import {
+  getBillingStatus,
+  openRestorePage,
+  openSubscriptionPage,
+  openUpgradePage,
+} from "../../lib/billing/extpay";
+import {
+  FREE_QUOTA_STORAGE_KEY,
+  type FreeQuotaRecord,
+  getRemainingFreeQuickScans,
+  normalizeFreeQuota,
+  recordCompletedFreeQuickScan,
+} from "../../lib/billing/quota";
 import {
   exportAnalysisPdf,
   exportAnalysisXls,
@@ -78,7 +92,7 @@ export function App() {
   const [session, setSession] = useState<ScanSession>();
   const [result, setResult] = useState<AnalysisResult>();
   const [showingDemo, setShowingDemo] = useState(false);
-  const [scanMode, setScanMode] = useState<ScanMode>("standard");
+  const [scanMode, setScanMode] = useState<ScanMode>("quick");
   const [activeUrl, setActiveUrl] = useState<string>();
   const [error, setError] = useState<string>();
   const [working, setWorking] = useState(false);
@@ -87,6 +101,14 @@ export function App() {
   const [exporting, setExporting] = useState<"pdf" | "xls">();
   const [confirmingDeletion, setConfirmingDeletion] = useState(false);
   const [privacyNotice, setPrivacyNotice] = useState<string>();
+  const [billingLoaded, setBillingLoaded] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+  const [planName, setPlanName] = useState<string>();
+  const [billingAction, setBillingAction] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [freeQuota, setFreeQuota] = useState<FreeQuotaRecord>(() =>
+    normalizeFreeQuota(undefined),
+  );
 
   useEffect(() => {
     void chrome.storage.local.get(CONSENT_STORAGE_KEY).then((stored) => {
@@ -97,6 +119,14 @@ export function App() {
 
   useEffect(() => {
     if (!consented) return;
+
+    setBillingLoaded(false);
+    void chrome.storage.local.get(FREE_QUOTA_STORAGE_KEY).then((stored) => {
+      const quota = normalizeFreeQuota(stored[FREE_QUOTA_STORAGE_KEY]);
+      setFreeQuota(quota);
+      void chrome.storage.local.set({ [FREE_QUOTA_STORAGE_KEY]: quota });
+    });
+    void refreshBillingStatus();
 
     void chrome.storage.local.get(ACTIVE_SESSION_KEY).then((stored) => {
       const storedSession = stored[ACTIVE_SESSION_KEY] as ScanSession | undefined;
@@ -136,6 +166,35 @@ export function App() {
     };
   }, [consented]);
 
+  async function refreshBillingStatus() {
+    try {
+      const status = await getBillingStatus();
+      setIsPro(status.isPro);
+      setPlanName(status.planName);
+      if (status.isPro) setShowUpgrade(false);
+    } catch {
+      setIsPro(false);
+    } finally {
+      setBillingLoaded(true);
+    }
+  }
+
+  async function runBillingAction(action: () => Promise<void>) {
+    setBillingAction(true);
+    setError(undefined);
+    try {
+      await action();
+    } catch (billingError) {
+      setError(
+        billingError instanceof Error
+          ? billingError.message
+          : "Unable to open billing. Please try again.",
+      );
+    } finally {
+      setBillingAction(false);
+    }
+  }
+
   async function acceptDisclosure() {
     await chrome.storage.local.set({
       [CONSENT_STORAGE_KEY]: createConsentRecord(),
@@ -155,6 +214,7 @@ export function App() {
       );
     }
     await chrome.storage.local.clear();
+    await chrome.storage.sync.clear().catch(() => undefined);
     setSession(undefined);
     setResult(undefined);
     setShowingDemo(false);
@@ -164,6 +224,11 @@ export function App() {
     setError(undefined);
     setConfirmingDeletion(false);
     setPrivacyNotice("Local extension data deleted.");
+    setIsPro(false);
+    setPlanName(undefined);
+    setBillingLoaded(false);
+    setShowUpgrade(false);
+    setFreeQuota(normalizeFreeQuota(undefined));
     setConsented(false);
   }
 
@@ -185,6 +250,20 @@ export function App() {
   }
 
   async function startScan() {
+    const remaining = getRemainingFreeQuickScans(freeQuota);
+    if (!billingLoaded) {
+      setError("Checking your access. Please try again in a moment.");
+      return;
+    }
+    if (!isPro && scanMode !== "quick") {
+      setShowUpgrade(true);
+      return;
+    }
+    if (!isPro && remaining === 0) {
+      setShowUpgrade(true);
+      return;
+    }
+
     setWorking(true);
     setError(undefined);
     setCaptureProgress(undefined);
@@ -336,6 +415,10 @@ export function App() {
 
   async function finishScan() {
     if (!session) return;
+    if (!isPro && session.mode !== "quick") {
+      setShowUpgrade(true);
+      return;
+    }
     if (collecting) {
       await sendToActiveTab({ type: MESSAGE_TYPES.cancelCollection }).catch(
         () => undefined,
@@ -345,17 +428,25 @@ export function App() {
     }
     const sample = buildProfileSample(session);
     const historyKey = profileHistoryKey(sample.handle);
-    const stored = await chrome.storage.local.get(historyKey);
-    const history = Array.isArray(stored[historyKey])
+    const stored = isPro
+      ? await chrome.storage.local.get(historyKey)
+      : ({} as Record<string, unknown>);
+    const history = isPro && Array.isArray(stored[historyKey])
       ? (stored[historyKey] as ProfileHistorySnapshot[])
       : [];
     const analysis = analyzeProfile(sample, history);
-    const nextHistory = appendHistorySnapshot(history, sample);
     setResult(analysis);
-    await chrome.storage.local.set({
+    const updates: Record<string, unknown> = {
       [`scan:${analysis.handle}`]: analysis,
-      [historyKey]: nextHistory,
-    });
+    };
+    if (isPro) {
+      updates[historyKey] = appendHistorySnapshot(history, sample);
+    } else {
+      const nextQuota = recordCompletedFreeQuickScan(freeQuota);
+      updates[FREE_QUOTA_STORAGE_KEY] = nextQuota;
+      setFreeQuota(nextQuota);
+    }
+    await chrome.storage.local.set(updates);
     setSession(undefined);
     await saveSession(undefined);
   }
@@ -377,6 +468,10 @@ export function App() {
 
   async function exportReport(format: "pdf" | "xls") {
     if (!result) return;
+    if (!isPro) {
+      setShowUpgrade(true);
+      return;
+    }
     setExporting(format);
     setError(undefined);
 
@@ -398,6 +493,7 @@ export function App() {
   }
 
   const score = result?.trustScore;
+  const remainingFreeScans = getRemainingFreeQuickScans(freeQuota);
   const activeModeConfig = session
     ? getScanModeConfig(session.mode)
     : getScanModeConfig(scanMode);
@@ -416,6 +512,33 @@ export function App() {
         </div>
       </header>
 
+      {consented && (
+        <section className="access-bar" aria-live="polite">
+          <div>
+            <span className={isPro ? "plan-pill pro" : "plan-pill"}>
+              {billingLoaded ? (isPro ? "PRO" : "FREE") : "CHECKING"}
+            </span>
+            <p>
+              {isPro
+                ? `${planName || "Pro"} access active`
+                : `${remainingFreeScans} of ${FREE_QUICK_SCANS_PER_MONTH} Quick scans left this month`}
+            </p>
+          </div>
+          <button
+            className="account-button"
+            onClick={() =>
+              isPro
+                ? void runBillingAction(openSubscriptionPage)
+                : setShowUpgrade(true)
+            }
+            disabled={billingAction}
+            type="button"
+          >
+            {isPro ? "MANAGE" : "UPGRADE"}
+          </button>
+        </section>
+      )}
+
       {!consentLoaded && (
         <section className="empty-card status-card" aria-live="polite">
           <p>Loading privacy choices…</p>
@@ -431,9 +554,10 @@ export function App() {
             Instagram profile, post, and comment content from the active tab.
           </p>
           <ul className="disclosure-list">
-            <li>Analysis runs locally in this browser.</li>
-            <li>Scan results and lightweight history are saved in Chrome local storage.</li>
-            <li>Nothing is sent to us or sold to third parties.</li>
+            <li>Instagram content and analysis stay in this browser.</li>
+            <li>Scan results, usage quota, and optional history are saved locally.</li>
+            <li>ExtensionPay checks your Free or Pro access. Stripe handles checkout.</li>
+            <li>We do not sell your data or send Instagram content to billing providers.</li>
             <li>You can delete all locally stored extension data at any time.</li>
           </ul>
           <button onClick={() => void acceptDisclosure()} type="button">
@@ -450,7 +574,54 @@ export function App() {
         </section>
       )}
 
-      {consented && !session && !result && (
+      {consented && showUpgrade && (
+        <section className="upgrade-card">
+          <button
+            className="upgrade-close"
+            onClick={() => setShowUpgrade(false)}
+            aria-label="Close Pro details"
+            type="button"
+          >
+            ×
+          </button>
+          <p className="eyebrow">CREATOR TRUST LENS PRO</p>
+          <h2>Review creators without limits.</h2>
+          <ul>
+            <li>Unlimited Quick, Standard, and Deep scans</li>
+            <li>Beautiful PDF and XLS evidence reports</li>
+            <li>Historical comparisons across repeat scans</li>
+          </ul>
+          <button
+            onClick={() => void runBillingAction(openUpgradePage)}
+            disabled={billingAction}
+            type="button"
+          >
+            {billingAction ? "OPENING SECURE CHECKOUT…" : "VIEW PRO PLANS"}
+          </button>
+          <div className="upgrade-links">
+            <button
+              onClick={() => void runBillingAction(openRestorePage)}
+              disabled={billingAction}
+              type="button"
+            >
+              Restore purchase
+            </button>
+            <button
+              onClick={() => void refreshBillingStatus()}
+              disabled={!billingLoaded || billingAction}
+              type="button"
+            >
+              Refresh Pro access
+            </button>
+          </div>
+          <p className="billing-note">
+            Checkout and subscription management are securely handled by ExtensionPay and Stripe.
+          </p>
+          {error && <p className="error">{error}</p>}
+        </section>
+      )}
+
+      {consented && !showUpgrade && !session && !result && (
         <section className="empty-card">
           <p className="eyebrow">EVIDENCE, NOT ACCUSATIONS</p>
           <h2>Inspect visible engagement signals.</h2>
@@ -461,21 +632,37 @@ export function App() {
           <div className="mode-picker" aria-label="Scan depth">
             {SCAN_MODE_ORDER.map((mode) => {
               const config = SCAN_MODES[mode];
+              const requiresPro = mode !== "quick";
               return (
                 <button
                   className={scanMode === mode ? "mode-option selected" : "mode-option"}
                   key={mode}
-                  onClick={() => setScanMode(mode)}
+                  onClick={() => {
+                    if (requiresPro && !isPro) {
+                      setShowUpgrade(true);
+                      return;
+                    }
+                    setScanMode(mode);
+                  }}
                   type="button"
                 >
-                  <strong>{config.label}</strong>
+                  <strong>
+                    {config.label}
+                    {requiresPro && <small>PRO</small>}
+                  </strong>
                   <span>{config.postLimit} post target · {config.commentLimit} comments each</span>
                 </button>
               );
             })}
           </div>
-          <button onClick={startScan} disabled={working}>
-            {working ? "DISCOVERING POSTS…" : "START GUIDED SCAN"}
+          <button onClick={startScan} disabled={working || !billingLoaded}>
+            {working
+              ? "DISCOVERING POSTS…"
+              : !billingLoaded
+                ? "CHECKING ACCESS…"
+                : !isPro && remainingFreeScans === 0
+                  ? "UNLOCK MORE SCANS"
+                  : "START GUIDED SCAN"}
           </button>
           <button className="demo-button" onClick={openDemoReport} disabled={working}>
             VIEW SAMPLE REPORT
@@ -609,7 +796,7 @@ export function App() {
         </section>
       )}
 
-      {consented && result && (
+      {consented && !showUpgrade && result && (
         <>
           <section className="score-card">
             {showingDemo && <p className="demo-badge">SAMPLE DATA</p>}
@@ -652,24 +839,28 @@ export function App() {
 
           <section className="export-card">
             <div>
-              <p className="eyebrow">KEEP OR SHARE THE EVIDENCE</p>
-              <h2>Export this analysis</h2>
-              <p>Reports are generated locally in your browser.</p>
+              <p className="eyebrow">{isPro ? "KEEP OR SHARE THE EVIDENCE" : "PRO REPORTS"}</p>
+              <h2>{isPro ? "Export this analysis" : "Unlock PDF and XLS exports"}</h2>
+              <p>
+                {isPro
+                  ? "Reports are generated locally in your browser."
+                  : "Your score remains free to view. Upgrade to create polished client-ready reports."}
+              </p>
             </div>
             <div className="export-actions">
               <button
                 className="export-pdf"
-                onClick={() => void exportReport("pdf")}
+                onClick={() => isPro ? void exportReport("pdf") : setShowUpgrade(true)}
                 disabled={Boolean(exporting)}
               >
-                {exporting === "pdf" ? "CREATING PDF…" : "EXPORT PDF"}
+                {exporting === "pdf" ? "CREATING PDF…" : isPro ? "EXPORT PDF" : "UNLOCK PDF"}
               </button>
               <button
                 className="export-xls"
-                onClick={() => void exportReport("xls")}
+                onClick={() => isPro ? void exportReport("xls") : setShowUpgrade(true)}
                 disabled={Boolean(exporting)}
               >
-                {exporting === "xls" ? "CREATING XLS…" : "EXPORT XLS"}
+                {exporting === "xls" ? "CREATING XLS…" : isPro ? "EXPORT XLS" : "UNLOCK XLS"}
               </button>
             </div>
             {error && <p className="error">{error}</p>}
@@ -692,7 +883,7 @@ export function App() {
           {confirmingDeletion ? (
             <div className="delete-confirmation">
               <strong>Delete all local data?</strong>
-              <p>This removes saved scans, scan history, and your consent choice.</p>
+              <p>This removes saved scans, quota, billing login, history, and your consent choice. It does not cancel an active subscription.</p>
               <div>
                 <button className="danger-button" onClick={() => void deleteLocalData()}>
                   DELETE EVERYTHING

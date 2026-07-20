@@ -32,6 +32,8 @@ Key features:
 - Local browser processing with no Creator Trust Lens account
 - One-click deletion of all extension-local data
 
+The Free plan includes 3 completed Quick scans per calendar month and on-screen evidence reports. Creator Trust Lens Pro is an optional paid subscription that unlocks unlimited Quick, Standard, and Deep scans, PDF and XLS exports, and historical comparisons. Available plans and prices are shown before purchase in the secure ExtensionPay checkout.
+
 Current scope: public Instagram creator profiles in Chrome on desktop. Page markup can change, so collection availability may vary by page and account state.
 
 Creator Trust Lens is an independent product and is not affiliated with, endorsed by, or sponsored by Instagram or Meta.
@@ -46,7 +48,7 @@ Creator Trust Lens reviews publicly visible Instagram engagement signals and pre
 
 **sidePanel:** Used to show the scan workflow and report beside Instagram while the user manually reviews and scrolls the selected content.
 
-**storage:** Used to save the consent record, active scan progress, completed analysis, preferences, and up to 12 lightweight historical snapshots per scanned profile on the user's device.
+**storage:** Used to save the consent record, active scan progress, completed analysis, monthly Free-plan usage, preferences, and up to 12 lightweight Pro historical snapshots locally. ExtensionPay may use Chrome sync storage for its API key and cached license state so a purchase can be restored across the user's Chrome profile.
 
 **Host access to `https://www.instagram.com/*`:** Required for the content script to parse public profile, post, metric, and comment content when the user explicitly starts a scan. The extension does not bypass private accounts or access controls.
 
@@ -57,10 +59,12 @@ Use conservative disclosure. The extension handles data locally even though it d
 Declare the applicable categories for:
 
 - personally identifiable information, because public Instagram handles are identifiers;
+- authentication information, because ExtensionPay may store billing login and license state;
+- financial and payment information, because ExtensionPay and Stripe process plan and transaction information when a user voluntarily upgrades;
 - website content, because public profile, post, metric, and comment content is read;
 - web history, because active Instagram profile and post URLs are processed and may be stored locally during a scan.
 
-State that data is used for core functionality, is not sold, is not used for advertising or credit decisions, and is not transmitted outside the user's device. Confirm the Limited Use certification only while the implementation continues to match the privacy notice.
+State that data is used for core functionality, is not sold, and is not used for advertising or credit decisions. Scanned Instagram content and reports remain local. Optional licensing, login, plan, and payment information is transferred only to ExtensionPay and Stripe to provide paid features. Confirm the Limited Use certification only while the implementation continues to match the privacy notice.
 
 **Privacy policy URL:** https://sites.google.com/view/creator-trust-lens-privacy
 
