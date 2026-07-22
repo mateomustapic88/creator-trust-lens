@@ -14,12 +14,14 @@
       <feGaussianBlur stdDeviation="5"/>
     </filter>
   </defs>
-  <rect x="16" y="16" width="96" height="96" rx="25" fill="url(#bg)"/>
-  <rect x="16.5" y="16.5" width="95" height="95" rx="24.5" fill="none" stroke="#FFFFFF" stroke-opacity=".12"/>
-  <circle cx="63" cy="61" r="26" fill="none" stroke="#FF3D77" stroke-opacity=".28" stroke-width="10" filter="url(#glow)"/>
-  <circle cx="63" cy="61" r="24" fill="none" stroke="url(#ring)" stroke-width="9"/>
-  <path d="M81 79L94 92" stroke="#FF4F79" stroke-width="10" stroke-linecap="round"/>
-  <path d="M50 60.5c7.6-9 18.4-9 26 0-7.6 9-18.4 9-26 0Z" fill="#F9F7FF"/>
-  <circle cx="63" cy="60.5" r="5.5" fill="#7C4DFF"/>
-  <circle cx="65" cy="58.5" r="1.8" fill="white"/>
+  <g transform="translate(64 64) scale(1.25) translate(-64 -64)">
+    <rect x="16" y="16" width="96" height="96" rx="25" fill="url(#bg)"/>
+    <rect x="16.5" y="16.5" width="95" height="95" rx="24.5" fill="none" stroke="#FFFFFF" stroke-opacity=".12"/>
+    <circle cx="63" cy="61" r="26" fill="none" stroke="#FF3D77" stroke-opacity=".28" stroke-width="10" filter="url(#glow)"/>
+    <circle cx="63" cy="61" r="24" fill="none" stroke="url(#ring)" stroke-width="9"/>
+    <path d="M81 79L94 92" stroke="#FF4F79" stroke-width="10" stroke-linecap="round"/>
+    <path d="M50 60.5c7.6-9 18.4-9 26 0-7.6 9-18.4 9-26 0Z" fill="#F9F7FF"/>
+    <circle cx="63" cy="60.5" r="5.5" fill="#7C4DFF"/>
+    <circle cx="65" cy="58.5" r="1.8" fill="white"/>
+  </g>
 </svg>

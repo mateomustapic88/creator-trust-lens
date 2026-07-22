@@ -14,7 +14,7 @@
 
 ## Dashboard
 
-- Upload `.output/creator-trust-lens-1.0.0-chrome.zip` as a new package version.
+- Upload `.output/creator-trust-lens-1.0.1-chrome.zip` as a new package version.
 - Copy the listing text and permission justifications from `docs/chrome-web-store-listing.md`.
 - Upload the 1280 by 800 screenshot and 440 by 280 promotional tile.
 - Select Productivity and English.
